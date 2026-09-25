@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2A8A4C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Verdulería">
+<link rel="apple-touch-icon" href="icono-180.png">
+<link rel="icon" href="icono.svg" type="image/svg+xml">
 <!--ART-START-->
 <title>Verdulería al Peso</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -307,6 +315,43 @@ details.tk .linea{padding:4px 0 4px 12px}
 .hoja form{display:flex;flex-direction:column;gap:12px}
 .campo input[type="file"]{padding:8px;background:var(--paper);min-height:44px}
 
+/* ---------- Red, venta hecha, WhatsApp, catálogo ---------- */
+.red{background:var(--money-soft);color:var(--ink);font-size:.85rem;font-weight:700;text-align:center;padding:6px 12px;border-bottom:1px solid var(--money);flex:none}
+.red.mal{background:color-mix(in srgb,var(--bad) 14%,var(--paper));border-color:var(--bad)}
+.hecho{display:flex;flex-direction:column;gap:14px;text-align:center}
+.hecho-icono{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:1.8rem;font-weight:800;margin:0 auto}
+.hecho .pantalla .grande,.hecho .pantalla .chico{text-align:center}
+.hecho .cambio{color:var(--accent);font-size:2.8rem}
+.hecho .campo{text-align:left}
+a.btn{text-decoration:none}
+.btn.wa{background:#25D366;color:#0B2B1A}
+button,a.btn{-webkit-tap-highlight-color:transparent}
+.buscar{position:sticky;top:0;z-index:2;background:var(--ground);padding-block:2px}
+.tarjeta .desc{font-size:.75rem;color:var(--muted);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-2px}
+.prod-celda{white-space:normal}
+.prod-celda .desc{display:block;font-weight:400;font-size:.75rem;color:var(--muted)}
+.lbl-cel{display:none}
+.filtro-tabla{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filtro-tabla input{flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--ground);min-height:42px}
+.filtro-tabla .cuenta{font-size:.85rem;color:var(--muted);white-space:nowrap}
+.tk-acciones{display:flex;justify-content:flex-end;padding:6px 0 2px}
+.casilla{display:flex;align-items:center;gap:8px;font-size:.9rem}
+.casilla input{width:20px;height:20px;min-height:0;padding:0}
+@media (max-width:640px){
+  .tabla-carga thead{display:none}
+  .tabla-carga,.tabla-carga tbody{display:block}
+  .tabla-carga tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+  .tabla-carga td{display:block;padding:0;border:0;text-align:left}
+  .tabla-carga td:nth-child(1){grid-column:1;grid-row:1}
+  .tabla-carga td:nth-child(5){grid-column:2;grid-row:1;justify-self:end}
+  .tabla-carga td:nth-child(2){grid-column:1;grid-row:2}
+  .tabla-carga td:nth-child(3){grid-column:2;grid-row:2}
+  .tabla-carga td:nth-child(4){grid-column:1/-1;grid-row:3}
+  .lbl-cel{display:block;font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+  .celda-input{width:100%;justify-content:space-between}
+  .celda-input input{width:100%;text-align:left}
+}
+
 /* ---------- Toast ---------- */
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center;font-size:.95rem}
 </style>
@@ -327,6 +372,7 @@ details.tk .linea{padding:4px 0 4px 12px}
       <button data-accion="ir" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10m4 0h2M4 12h2m4 0h10M4 17h10m4 0h2"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>Ajustes</button>
     </nav>
   </header>
+  <div id="red" class="red" hidden></div>
   <main id="main"></main>
 </div>
 <div class="modal" id="modal" hidden><div class="hoja" id="hoja" role="dialog" aria-modal="true" tabindex="-1"></div></div>
@@ -426,12 +472,32 @@ canasta:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-bob">
 <path d="M18 50H82L76 86H24Z" fill="#C08A4A"/>
 <path d="M16 50H84" fill="none" stroke="#8E5F2B" stroke-width="5" stroke-linecap="round"/>
 <path d="M32 54L36 84M50 54V84M68 54L64 84" fill="none" stroke="#8E5F2B" stroke-width="2" opacity=".6"/>
-</g></svg>`
+</g></svg>`,
+toronja:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-roll"><circle cx="50" cy="56" r="33" fill="#F5B36A"/><g fill="#E8955A" opacity=".6"><circle cx="38" cy="48" r="1.6"/><circle cx="52" cy="42" r="1.6"/><circle cx="64" cy="52" r="1.6"/><circle cx="34" cy="64" r="1.6"/><circle cx="48" cy="62" r="1.6"/><circle cx="60" cy="70" r="1.6"/><circle cx="42" cy="76" r="1.6"/></g><circle cx="50" cy="25" r="3" fill="#C7731A"/><path class="anim-hoja" d="M52 25C58 13 72 11 78 17C72 27 60 31 52 25Z" fill="#3E9B4F"/></g></svg>`,
+papaya:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-wobble"><ellipse cx="50" cy="52" rx="24" ry="40" fill="#F2A93B" transform="rotate(-18 50 52)"/><ellipse cx="50" cy="52" rx="14" ry="27" fill="#E8752F" transform="rotate(-18 50 52)"/><g fill="#2B1B12"><circle cx="46" cy="40" r="2.4"/><circle cx="54" cy="46" r="2.4"/><circle cx="47" cy="54" r="2.4"/><circle cx="55" cy="60" r="2.4"/><circle cx="49" cy="66" r="2.4"/></g><path d="M62 14c4-4 8-4 10-2" fill="none" stroke="#4FA24A" stroke-width="4" stroke-linecap="round"/></g></svg>`,
+guayaba:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-bob"><circle cx="50" cy="56" r="30" fill="#C9D96A"/><ellipse cx="38" cy="46" rx="7" ry="4" fill="#E4EE9A" opacity=".8" transform="rotate(-30 38 46)"/><path d="M50 26c-4-4-4-8-2-12M50 26c4-4 4-8 2-12" fill="none" stroke="#7A4F1D" stroke-width="3" stroke-linecap="round"/><circle cx="66" cy="70" r="14" fill="#F2A0B4"/><circle cx="66" cy="70" r="14" fill="none" stroke="#C9D96A" stroke-width="3"/><g fill="#F6DDE4"><circle cx="62" cy="66" r="1.6"/><circle cx="70" cy="68" r="1.6"/><circle cx="65" cy="74" r="1.6"/><circle cx="71" cy="75" r="1.4"/></g></g></svg>`,
+tomateverde:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-bob"><circle cx="50" cy="60" r="26" fill="#7FBF4D"/><path d="M50 34C36 30 26 40 24 56C34 46 42 44 50 46C58 44 66 46 76 56C74 40 64 30 50 34Z" fill="#E6DDB4"/><path d="M50 34C44 40 40 50 40 62M50 34C56 40 60 50 60 62" fill="none" stroke="#CFC28E" stroke-width="2"/><path d="M50 34V26" stroke="#7A8A3A" stroke-width="3" stroke-linecap="round"/></g></svg>`,
+cebollamorada:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-wobble"><path d="M50 24C30 30 18 46 20 64C22 80 36 90 50 90C64 90 78 80 80 64C82 46 70 30 50 24Z" fill="#8E4E9A"/><path d="M50 26C40 40 36 60 40 88M50 26C60 40 64 60 60 88M50 26C50 50 50 70 50 90" fill="none" stroke="#6B2F78" stroke-width="2.4" opacity=".9"/><path d="M50 24C46 16 46 10 48 6M50 24C52 16 54 10 56 8" fill="none" stroke="#9BB86B" stroke-width="3" stroke-linecap="round"/><path d="M44 90l-3 6M50 90v6M56 90l3 6" fill="none" stroke="#C9B896" stroke-width="2" stroke-linecap="round"/></g></svg>`,
+jalapeno:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-sway"><path d="M40 22C26 34 26 62 40 78C50 90 66 90 78 80C62 76 54 60 52 40C52 32 48 24 40 22Z" fill="#2F8F3E"/><path d="M42 26C38 36 40 54 46 68" fill="none" stroke="#7FCB6A" stroke-width="3" stroke-linecap="round" opacity=".6"/><path d="M40 22C36 14 36 10 40 6M40 22C34 20 30 22 28 26" fill="none" stroke="#2F7D3E" stroke-width="4" stroke-linecap="round"/></g></svg>`,
+poblano:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-sway"><path d="M50 18C30 22 24 44 30 62C36 80 50 92 62 88C74 84 80 60 74 40C70 26 62 18 50 18Z" fill="#215E2E"/><path d="M40 30C36 42 38 58 44 72" fill="none" stroke="#4E9B5C" stroke-width="3" stroke-linecap="round" opacity=".6"/><path d="M50 18C48 12 48 8 52 4M50 18C44 16 40 18 38 22" fill="none" stroke="#2F7D3E" stroke-width="4" stroke-linecap="round"/></g></svg>`,
+calabacita:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-sway"><path d="M30 26C24 40 24 66 34 82C40 90 60 90 66 82C76 66 76 40 70 26C66 18 34 18 30 26Z" fill="#5FA84B"/><path d="M38 26C34 44 34 66 40 82M62 26C66 44 66 66 60 82" fill="none" stroke="#A9DC8B" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M50 20V8" stroke="#7A8A3A" stroke-width="5" stroke-linecap="round"/></g></svg>`,
+chayote:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-wobble"><path d="M50 14C40 14 34 26 32 42C30 60 26 78 40 86C48 90 56 90 64 84C76 76 70 58 66 42C64 26 60 14 50 14Z" fill="#9CCB6B"/><path d="M44 20C40 40 38 62 42 84M56 20C60 40 62 62 58 84M50 16V88" fill="none" stroke="#7DB250" stroke-width="2.4" opacity=".8"/></g></svg>`,
+coliflor:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-bob"><path d="M22 76C14 66 20 50 30 50C30 38 42 32 50 36C58 30 72 36 72 48C82 48 86 64 78 74C80 84 66 90 50 88C34 90 20 86 22 76Z" fill="#F4F1E6"/><g fill="#E3DECB"><circle cx="36" cy="58" r="8"/><circle cx="52" cy="50" r="9"/><circle cx="66" cy="60" r="8"/><circle cx="44" cy="72" r="8"/><circle cx="60" cy="74" r="8"/></g><path d="M22 76C10 80 8 90 14 94C24 92 30 86 32 82ZM78 74C90 78 92 90 86 94C76 92 70 86 68 82Z" fill="#5FA84B"/></g></svg>`,
+betabel:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-bob"><path d="M50 40C34 40 24 52 26 66C28 80 40 88 50 96C60 88 72 80 74 66C76 52 66 40 50 40Z" fill="#8E1E4B"/><path d="M38 52C34 58 34 66 38 74" fill="none" stroke="#C04A7A" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M50 40C46 30 40 20 30 14M50 40C50 28 52 18 56 8M50 40C56 30 64 22 74 18" fill="none" stroke="#B0264E" stroke-width="4" stroke-linecap="round"/><path d="M30 14c6 8 8 16 12 22M56 8c-2 10-2 20-2 28M74 18c-8 6-14 12-18 18" fill="none" stroke="#5FA84B" stroke-width="5" stroke-linecap="round"/></g></svg>`,
+rabano:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-wobble"><circle cx="34" cy="62" r="16" fill="#E23D5B"/><circle cx="62" cy="66" r="16" fill="#E23D5B"/><path d="M34 78v10M62 82v10" stroke="#F6E8EC" stroke-width="4" stroke-linecap="round"/><path d="M30 48c-2-10-6-18-12-24M36 46c2-10 6-18 12-24M60 50c-2-10-4-18-2-26M66 50c4-10 10-16 18-20" fill="none" stroke="#5FA84B" stroke-width="5" stroke-linecap="round"/></g></svg>`,
+jicama:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-wobble"><path d="M50 24C30 24 20 40 22 58C24 76 36 88 50 88C64 88 76 76 78 58C80 40 70 24 50 24Z" fill="#C9A66B"/><path d="M50 26C42 44 40 64 44 86M50 26C58 44 60 64 56 86" fill="none" stroke="#A9865A" stroke-width="2.4" opacity=".7"/><path d="M50 24V14M46 14h8" stroke="#8E6B3F" stroke-width="3" stroke-linecap="round"/></g></svg>`,
+col:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-bob"><circle cx="50" cy="56" r="32" fill="#B7D89A"/><path d="M28 40C40 50 46 66 44 86M72 40C60 50 54 66 56 86M34 78C42 66 58 66 66 78" fill="none" stroke="#86B86A" stroke-width="3" stroke-linecap="round"/><path d="M18 60C14 44 30 30 46 34C34 40 26 50 18 60ZM82 60C86 44 70 30 54 34C66 40 74 50 82 60Z" fill="#9CC97E"/></g></svg>`,
+apio:`<svg viewBox="0 0 100 100" aria-hidden="true"><g class="anim-rustle"><path d="M40 92V44M50 92V38M60 92V44" stroke="#A7D46B" stroke-width="8" stroke-linecap="round"/><path d="M40 92V44M50 92V38M60 92V44" stroke="#CDE99C" stroke-width="2" stroke-linecap="round"/><g fill="#5FA84B"><circle cx="40" cy="36" r="8"/><circle cx="32" cy="44" r="6"/><circle cx="50" cy="28" r="9"/><circle cx="60" cy="36" r="8"/><circle cx="68" cy="44" r="6"/></g></g></svg>`
 };
-const NOMBRE_ILUS = {platano:'Plátano',manzana:'Manzana',melon:'Melón',sandia:'Sandía',limon:'Limón',cilantro:'Cilantro',perejil:'Perejil',aguacate:'Aguacate',jitomate:'Jitomate',cebolla:'Cebolla',naranja:'Naranja',zanahoria:'Zanahoria',papa:'Papa',chile:'Chile',canasta:'Genérico'};
+const NOMBRE_ILUS = {platano:'Plátano',manzana:'Manzana',melon:'Melón',sandia:'Sandía',limon:'Limón',cilantro:'Cilantro',perejil:'Perejil',aguacate:'Aguacate',jitomate:'Jitomate',cebolla:'Cebolla',naranja:'Naranja',zanahoria:'Zanahoria',papa:'Papa',chile:'Chile serrano',canasta:'Genérico',toronja:'Toronja',papaya:'Papaya',guayaba:'Guayaba',tomateverde:'Tomate verde',cebollamorada:'Cebolla morada',jalapeno:'Chile jalapeño',poblano:'Chile poblano',calabacita:'Calabacita',chayote:'Chayote',coliflor:'Coliflor',betabel:'Betabel',rabano:'Rábano',jicama:'Jícama',col:'Col',apio:'Apio'};
 
 /* ================= Estado y utilidades ================= */
-const CLAVE = 'verduleria.v1';
+const CLAVE = 'verduleria.v1';           // datos en modo local (sin servidor)
+const CLAVE_CACHE = 'verduleria.cache';  // última copia del estado del servidor, para abrir sin señal
+const CLAVE_COLA = 'verduleria.cola';    // ventas hechas sin señal, pendientes de enviar
+const CLAVE_MODO = 'verduleria.modo';
+const CLAVE_TOKEN = 'verduleria.token';
+const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -446,9 +512,14 @@ let vista = 'vender';
 let filtro = '';
 let ticket = [];
 let ticketAbierto = false;
-let desbloqueado = false;
-let modalActual = null;   // 'pesar' | 'cobrar' | 'pin' | 'editar' | 'otro'
-let pesa = null, cobro = null, pin = null, edicion = null;
+let MODO = 'local';        // 'servidor' cuando hay API
+let token = '';            // token del PIN (modo servidor)
+let desbloqueado = false;  // modo local: PIN tecleado en esta sesión
+let enLinea = true;
+let cola = [];             // ventas pendientes de enviar al servidor
+let sincronizando = false;
+let modalActual = null, modalOpts = null;
+let pesa = null, cobro = null, pin = null, edicion = null, ultimaVenta = null;
 let corteDia = null;
 let toastTimer = null;
 
@@ -459,6 +530,7 @@ function dinero(n){
 }
 function trim3(n){ return Number(r3(n)).toString(); }
 function cantidadTxt(n, unidad){
+  if (unidad === 'manojo') return trim3(n) + (n === 1 ? ' manojo' : ' manojos');
   if (unidad !== 'kg') return trim3(n) + ' pz';
   if (n > 0 && n < 1) return Math.round(n * 1000) + ' g';
   return trim3(n) + ' kg';
@@ -468,6 +540,8 @@ function hoy(){ return fechaLocal(Date.now()); }
 function horaTxt(ts){ return new Date(ts).toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'}); }
 function fechaTxt(iso){ const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d).toLocaleDateString('es-MX', {weekday: 'long', day: 'numeric', month: 'long'}); }
 function prod(id){ return estado.productos.find(p => p.id === id); }
+function tienePin(){ return MODO === 'servidor' ? !!estado.negocio.tiene_pin : !!estado.negocio.pin; }
+function abierto(){ return MODO === 'servidor' ? !!token : desbloqueado; }
 
 function nivel(p){
   if (!(p.declarado > 0)) return 0;
@@ -479,48 +553,64 @@ function banda(p){
   return n >= 50 ? 'ok' : n >= 20 ? 'warn' : 'bad';
 }
 
-function cargar(){
-  try { const t = localStorage.getItem(CLAVE); if (t) { const d = JSON.parse(t); if (d && Array.isArray(d.productos) && d.negocio) return d; } } catch (e) {}
+/* Almacenamiento del navegador: siempre puede fallar (privado, bloqueado), por eso va entre try. */
+function leerLS(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
+function escribirLS(k, v){ try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+function leerSS(k){ try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+function escribirSS(k, v){ try { if (v) sessionStorage.setItem(k, v); else sessionStorage.removeItem(k); } catch (e) {} }
+function cargarLocal(){
+  try { const d = JSON.parse(leerLS(CLAVE) || 'null'); if (d && Array.isArray(d.productos) && d.negocio) return d; } catch (e) {}
   return null;
 }
 function guardar(){
-  try { localStorage.setItem(CLAVE, JSON.stringify(estado)); }
-  catch (e) { toast('No se pudo guardar en este navegador'); }
+  if (MODO === 'local') { escribirLS(CLAVE, JSON.stringify(estado)); return; }
+  escribirLS(CLAVE_CACHE, JSON.stringify(estado));
 }
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2800);
 }
 
-/* ================= Datos de ejemplo ================= */
-function productosBase(){
-  return [
-    {nombre:'Plátano',  ilus:'platano',  precio:28, declarado:20, existencia:14.5},
-    {nombre:'Manzana',  ilus:'manzana',  precio:55, declarado:15, existencia:12},
-    {nombre:'Melón',    ilus:'melon',    precio:30, declarado:25, existencia:9},
-    {nombre:'Sandía',   ilus:'sandia',   precio:18, declarado:40, existencia:31},
-    {nombre:'Limón',    ilus:'limon',    precio:42, declarado:10, existencia:1.6},
-    {nombre:'Cilantro', ilus:'cilantro', precio:35, declarado:4,  existencia:3.4},
-    {nombre:'Perejil',  ilus:'perejil',  precio:38, declarado:3,  existencia:0, activo:false},
-    {nombre:'Aguacate', ilus:'aguacate', precio:95, declarado:12, existencia:6.8}
-  ].map(p => Object.assign({id: uid(), unidad: 'kg', activo: true, emoji: '', foto: ''}, p));
+/* ================= Catálogo y datos de ejemplo ================= */
+/* [nombre, imagen (clave de ILUS o emoji), unidad, precio de referencia]. Los precios son solo un punto de partida:
+   el dueño los cambia en Dirección. En el servidor todo arranca apagado y el dueño enciende lo que vende. */
+const CATALOGO = [
+  ['Plátano', 'platano', 'kg', 28], ['Plátano macho', '🍌', 'kg', 32], ['Manzana', 'manzana', 'kg', 55], ['Naranja', 'naranja', 'kg', 22],
+  ['Limón', 'limon', 'kg', 42], ['Mandarina', '🍊', 'kg', 35], ['Toronja', 'toronja', 'kg', 28], ['Sandía', 'sandia', 'kg', 18],
+  ['Melón', 'melon', 'kg', 30], ['Papaya', 'papaya', 'kg', 32], ['Piña', '🍍', 'pieza', 45], ['Mango', '🥭', 'kg', 45],
+  ['Fresa', '🍓', 'kg', 90], ['Uva', '🍇', 'kg', 85], ['Guayaba', 'guayaba', 'kg', 40], ['Pera', '🍐', 'kg', 60],
+  ['Durazno', '🍑', 'kg', 65], ['Aguacate', 'aguacate', 'kg', 95], ['Coco', '🥥', 'pieza', 35],
+  ['Jitomate', 'jitomate', 'kg', 30], ['Tomate verde', 'tomateverde', 'kg', 28], ['Cebolla', 'cebolla', 'kg', 26], ['Cebolla morada', 'cebollamorada', 'kg', 32],
+  ['Papa', 'papa', 'kg', 32], ['Zanahoria', 'zanahoria', 'kg', 20], ['Chile serrano', 'chile', 'kg', 60], ['Chile jalapeño', 'jalapeno', 'kg', 45],
+  ['Chile poblano', 'poblano', 'kg', 55], ['Pimiento morrón', '🫑', 'kg', 70], ['Cilantro', 'cilantro', 'manojo', 12], ['Perejil', 'perejil', 'manojo', 12],
+  ['Epazote', '🌿', 'manojo', 10], ['Lechuga', '🥬', 'pieza', 25], ['Calabacita', 'calabacita', 'kg', 30], ['Pepino', '🥒', 'kg', 25],
+  ['Chayote', 'chayote', 'kg', 28], ['Elote', '🌽', 'pieza', 12], ['Nopal', '🌵', 'kg', 25], ['Brócoli', '🥦', 'kg', 45],
+  ['Coliflor', 'coliflor', 'pieza', 35], ['Ejote', '🫛', 'kg', 45], ['Espinaca', '🥬', 'manojo', 15], ['Acelga', '🥬', 'manojo', 15],
+  ['Ajo', '🧄', 'kg', 120], ['Betabel', 'betabel', 'kg', 25], ['Camote', '🍠', 'kg', 30], ['Champiñón', '🍄', 'kg', 90],
+  ['Col', 'col', 'pieza', 30], ['Apio', 'apio', 'pieza', 30], ['Rábano', 'rabano', 'manojo', 15], ['Jícama', 'jicama', 'kg', 25]
+];
+function productosCatalogo(){
+  return CATALOGO.map(([nombre, img, unidad, precio]) => ({id: uid(), nombre, ilus: ILUS[img] ? img : 'canasta', emoji: ILUS[img] ? '' : img, foto: '', descripcion: '', unidad, precio, activo: false, declarado: 0, existencia: 0}));
 }
+const EJEMPLO_STOCK = {'Plátano': [20, 14.5], 'Manzana': [15, 12], 'Melón': [25, 9], 'Sandía': [40, 31], 'Limón': [10, 1.6], 'Cilantro': [30, 22], 'Perejil': [20, 0], 'Aguacate': [12, 6.8], 'Jitomate': [18, 11], 'Cebolla': [15, 9.5]};
+function cantidadEjemplo(p, rnd){ return p.unidad === 'kg' ? r3(0.25 + Math.round(rnd() * 11) * 0.25) : 1 + Math.floor(rnd() * 3); }
 function semilla(){
-  const productos = productosBase();
+  const productos = productosCatalogo();
+  productos.forEach(p => { const s = EJEMPLO_STOCK[p.nombre]; if (s) { p.activo = p.nombre !== 'Perejil'; p.declarado = s[0]; p.existencia = s[1]; } });
   const d = new Date();
   const a = (h, m) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x.getTime(); };
   const movimientos = productos.filter(p => p.declarado > 0).map((p, i) => ({
-    id: uid(), ts: a(7, 30 + i), tipo: 'entrada', pid: p.id, nombre: p.nombre, cantidad: p.declarado, unidad: 'kg', nota: 'Central de abastos'
+    id: uid(), ts: a(7, 30 + i), tipo: 'entrada', pid: p.id, nombre: p.nombre, cantidad: p.declarado, unidad: p.unidad, nota: 'Central de abastos'
   }));
-  const L = (nombre, cantidad, precio) => ({pid: (productos.find(p => p.nombre === nombre) || {}).id, nombre, cantidad, unidad: 'kg', precio, importe: r2(cantidad * precio)});
-  const v1 = [L('Plátano', 1.25, 28), L('Aguacate', 0.62, 95), L('Limón', 0.5, 42)];
-  const v2 = [L('Sandía', 4.3, 18), L('Cilantro', 0.15, 35)];
-  const ventas = [
+  const L = (nombre, cantidad) => { const p = productos.find(x => x.nombre === nombre); return {pid: p.id, nombre, cantidad, unidad: p.unidad, precio: p.precio, importe: r2(cantidad * p.precio)}; };
+  const v1 = [L('Plátano', 1.25), L('Aguacate', 0.62), L('Limón', 0.5)];
+  const v2 = [L('Sandía', 4.3), L('Cilantro', 2)];
+  const hoyV = [
     {id: uid(), ts: a(9, 12), lineas: v1, total: r2(v1.reduce((s, l) => s + l.importe, 0)), recibido: 200},
     {id: uid(), ts: a(10, 41), lineas: v2, total: r2(v2.reduce((s, l) => s + l.importe, 0)), recibido: 100}
   ];
-  ventas.forEach(v => { v.cambio = r2(v.recibido - v.total); v.lineas.forEach(l => movimientos.push({id: uid(), ts: v.ts, tipo: 'venta', pid: l.pid, nombre: l.nombre, cantidad: l.cantidad, unidad: 'kg', nota: ''})); });
-  return {negocio: {nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: true}, productos, movimientos, ventas: ventasSemillaSemana(productos).concat(ventas)};
+  hoyV.forEach(v => { v.cambio = r2(v.recibido - v.total); v.lineas.forEach(l => movimientos.push({id: uid(), ts: v.ts, tipo: 'venta', pid: l.pid, nombre: l.nombre, cantidad: l.cantidad, unidad: l.unidad, nota: ''})); });
+  return {negocio: {nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: true}, productos, movimientos, ventas: ventasSemillaSemana(productos).concat(hoyV)};
 }
 function ventasSemillaSemana(productos){
   let sem = 20260925;
@@ -535,8 +625,8 @@ function ventasSemillaSemana(productos){
       const k = 1 + Math.floor(rnd() * 3); const lineas = []; const usados = new Set();
       for (let j = 0; j < k; j++) {
         const p = disponibles[Math.floor(rnd() * disponibles.length)]; if (usados.has(p.id)) continue; usados.add(p.id);
-        const cantidad = r3(0.25 + Math.round(rnd() * 11) * 0.25);
-        lineas.push({pid: p.id, nombre: p.nombre, cantidad, unidad: 'kg', precio: p.precio, importe: r2(cantidad * p.precio)});
+        const cantidad = cantidadEjemplo(p, rnd);
+        lineas.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio: p.precio, importe: r2(cantidad * p.precio)});
       }
       const total = r2(lineas.reduce((a, l) => a + l.importe, 0)); const recibido = Math.ceil(total / 50) * 50;
       ventas.push({id: uid(), ts, lineas, total, recibido, cambio: r2(recibido - total)});
@@ -552,7 +642,9 @@ function ilusDe(p, clase){
   if (p.emoji) return `<span class="${c}"><span class="emoji anim-bob">${esc(p.emoji)}</span></span>`;
   return `<span class="${c}">${ILUS[p.ilus] || ILUS.canasta}</span>`;
 }
-function unidadCorta(u){ return u === 'kg' ? 'kg' : 'pz'; }
+function unidadCorta(u){ return u === 'kg' ? 'kg' : u === 'manojo' ? 'manojo' : 'pz'; }
+function unidadLarga(u){ return u === 'kg' ? 'kilo' : u === 'manojo' ? 'manojo' : 'pieza'; }
+function unidadPlural(u){ return u === 'kg' ? 'kg' : u === 'manojo' ? 'manojos' : 'piezas'; }
 
 function render(){
   $('#nombre-negocio').textContent = estado.negocio.nombre || 'Mi verdulería';
@@ -573,13 +665,14 @@ function rejillaHTML(){
   const q = filtro.trim().toLowerCase();
   const lista = estado.productos.filter(p => p.activo && (!q || p.nombre.toLowerCase().includes(q)));
   const cuenta = $('#cuenta'); if (cuenta) cuenta.textContent = lista.length + ' en venta';
-  if (!lista.length) return `<div class="vacio">${q ? 'Ningún producto se llama así.' : 'No hay productos encendidos. Enciéndelos en Dirección.'}</div>`;
+  if (!lista.length) return `<div class="vacio">${q ? 'Ningún producto se llama así.' : 'No hay productos encendidos.<br><br><button class="btn primario" data-accion="ir" data-vista="direccion">Ir a Dirección a encender productos</button>'}</div>`;
   return `<div class="rejilla">` + lista.map(p => {
     const n = nivel(p), ag = p.existencia <= 0;
-    return `<button class="tarjeta${ag ? ' agotado' : ''}" data-accion="pesar" data-id="${p.id}" data-banda="${banda(p)}" aria-label="${esc(p.nombre)}, ${dinero(p.precio)} por ${p.unidad === 'kg' ? 'kilo' : 'pieza'}, nivel ${n}">
+    return `<button class="tarjeta${ag ? ' agotado' : ''}" data-accion="pesar" data-id="${p.id}" data-banda="${banda(p)}" aria-label="${esc(p.nombre)}, ${dinero(p.precio)} por ${unidadLarga(p.unidad)}, nivel ${n}">
       ${ag ? '<span class="etiqueta">Agotado</span>' : ''}
       ${ilusDe(p)}
       <span class="nombre">${esc(p.nombre)}</span>
+      ${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}
       <span class="precio">${dinero(p.precio)}<small>/${unidadCorta(p.unidad)}</small></span>
       <span class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b></span>
     </button>`;
@@ -589,7 +682,7 @@ function vistaVender(){
   const enVenta = estado.productos.filter(p => p.activo).length;
   return `<div class="vender">
     <div class="catalogo">
-      ${estado.negocio.ejemplo ? avisoEjemplo() : ''}
+      ${estado.negocio.ejemplo ? avisoEjemplo() : (enVenta && !estado.ventas.length && estado.productos.every(p => p.existencia <= 0) ? `<div class="aviso"><span><b>Para empezar:</b> en Dirección carga el precio y el stock de hoy.</span><button class="btn chico borde" data-accion="ir" data-vista="direccion">Ir a Dirección</button></div>` : '')}
       <div class="buscar"><input id="buscar" type="search" placeholder="Buscar producto…" value="${esc(filtro)}" aria-label="Buscar producto" autocomplete="off"><span class="cuenta" id="cuenta">${enVenta} en venta</span></div>
       <div id="rejilla-wrap">${rejillaHTML()}</div>
     </div>
@@ -619,18 +712,18 @@ function movimientosHTML(lista){
 }
 function filaCargaHTML(p){
   const n = nivel(p);
-  return `<tr data-banda="${banda(p)}">
-    <td><span class="prod-celda">${ilusDe(p, 'chica')}<span>${esc(p.nombre)}</span></span></td>
-    <td class="num"><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio}" data-c-precio="${p.id}" aria-label="Precio de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
-    <td class="num"><span class="celda-input"><input type="number" min="0" step="any" inputmode="decimal" value="${trim3(Math.max(0, p.existencia))}" data-c-stock="${p.id}" aria-label="Stock actual de ${esc(p.nombre)}"><small>${unidadCorta(p.unidad)}</small></span></td>
+  return `<tr data-banda="${banda(p)}" data-nombre="${esc(p.nombre.toLowerCase())}"${p.activo ? '' : ' class="apagada"'}>
+    <td><span class="prod-celda">${ilusDe(p, 'chica')}<span>${esc(p.nombre)}${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span></span></td>
+    <td class="num"><small class="lbl-cel">Precio</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio}" data-c-precio="${p.id}" aria-label="Precio de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
+    <td class="num"><small class="lbl-cel">Stock actual</small><span class="celda-input"><input type="number" min="0" step="any" inputmode="decimal" value="${trim3(Math.max(0, p.existencia))}" data-c-stock="${p.id}" aria-label="Stock actual de ${esc(p.nombre)}"><small>${unidadCorta(p.unidad)}</small></span></td>
     <td><span class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b></span></td>
     <td><button type="button" class="switch" role="switch" aria-checked="${p.activo}" data-accion="toggle" data-id="${p.id}" aria-label="Encender o apagar ${esc(p.nombre)}"></button></td>
   </tr>`;
 }
 function tarjetasDireccionHTML(){
-  const filas = estado.productos.map(p => {
+  const filas = estado.productos.filter(p => p.activo).map(p => {
     const n = nivel(p);
-    return `<div class="fila${p.activo ? '' : ' apagada'}" data-banda="${banda(p)}">
+    return `<div class="fila" data-banda="${banda(p)}">
       ${ilusDe(p)}
       <div class="info">
         <div class="titulo"><b>${esc(p.nombre)}</b><span class="precio-txt">${dinero(p.precio)}/${unidadCorta(p.unidad)}</span><span class="estado-txt">${p.activo ? 'En venta' : 'Apagado'}</span></div>
@@ -645,18 +738,21 @@ function tarjetasDireccionHTML(){
     </div>`;
   }).join('');
   const movs = estado.movimientos.slice().sort((a, b) => b.ts - a.ts).slice(0, 12);
-  return `${filas || `<div class="vacio">Todavía no hay productos. Crea el primero.</div>`}
+  return `${filas || `<div class="vacio">Ningún producto encendido todavía.</div>`}
     <div class="seccion"><h3>Últimos movimientos</h3>${movimientosHTML(movs)}</div>`;
 }
 function vistaDireccion(){
-  const tabla = estado.productos.length ? `<form class="seccion" data-form="carga"><h3>Precios y stock actual</h3>
-      <p class="ayuda">Escribe el precio del kilo y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100.</p>
-      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Stock actual</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${estado.productos.map(filaCargaHTML).join('')}</tbody></table></div>
+  const encendidos = estado.productos.filter(p => p.activo).length;
+  const ordenados = estado.productos.filter(p => p.activo).concat(estado.productos.filter(p => !p.activo));
+  const tabla = estado.productos.length ? `<form class="seccion" data-form="carga"><h3>Productos, precios y stock</h3>
+      <p class="ayuda">Enciende lo que vendes, escribe el precio y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100. Los apagados no aparecen en la caja.</p>
+      <div class="filtro-tabla"><input id="filtro-carga" type="search" placeholder="Buscar en el catálogo…" aria-label="Buscar producto" autocomplete="off"><span class="cuenta">${encendidos} encendido${encendidos === 1 ? '' : 's'} de ${estado.productos.length}</span></div>
+      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Stock actual</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div>
       <div class="botonera"><button type="submit" class="btn primario">Guardar precios y stock</button></div></form>` : '';
   return `<div class="direccion">
     <div class="acciones"><h2>Dirección</h2><span class="ayuda">Nivel 100 = lo que declaraste · 0 = se acabó</span><span class="espacio"></span><button class="btn primario" data-accion="entrada">Declarar entrada</button><button class="btn borde" data-accion="nuevo">Nuevo producto</button></div>
     ${tabla}
-    <h3 class="sub-titulo">Producto por producto</h3>
+    <h3 class="sub-titulo">Los encendidos, uno por uno</h3>
     <div id="dir-tarjetas">${tarjetasDireccionHTML()}</div>
   </div>`;
 }
@@ -746,47 +842,47 @@ function vistaCorte(){
       <div class="tile"><small>Ticket promedio</small><b>${ventas.length ? dinero(total / ventas.length) : '—'}</b></div>
     </div>
     <div class="seccion"><h3>Por producto</h3>${filasProd.length ? `<div class="tabla-wrap"><table><thead><tr><th>Producto</th><th class="num">Vendido</th><th class="num">Importe</th></tr></thead><tbody>${filasProd.map(f => `<tr><td>${esc(f.nombre)}</td><td class="num">${cantidadTxt(f.cantidad, f.unidad)}</td><td class="num">${dinero(f.importe)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="vacio">No hubo ventas este día.</div>`}</div>
-    <div class="seccion"><h3>Tickets</h3>${ventas.length ? ventas.map(v => `<details class="tk"><summary><span class="hora">${horaTxt(v.ts)}</span><span class="muted">${v.lineas.length} art.</span><span class="tot">${dinero(v.total)}</span></summary>${v.lineas.map(l => `<div class="linea"><div>${esc(l.nombre)} <span class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}</span></div><div class="imp">${dinero(l.importe)}</div><span></span></div>`).join('')}<div class="linea"><div class="q">Recibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}</div><span></span><span></span></div></details>`).join('') : `<div class="vacio">Sin tickets.</div>`}</div>
+    <div class="seccion"><h3>Tickets</h3>${ventas.length ? ventas.map(v => `<details class="tk"><summary><span class="hora">${horaTxt(v.ts)}</span><span class="muted">${v.lineas.length} art.</span><span class="tot">${dinero(v.total)}</span></summary>${v.lineas.map(l => `<div class="linea"><div>${esc(l.nombre)} <span class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}</span></div><div class="imp">${dinero(l.importe)}</div><span></span></div>`).join('')}<div class="linea"><div class="q">Recibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}</div><span></span><span></span></div><div class="tk-acciones"><a class="btn chico wa" href="${enlaceWA(textoTicket(v))}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div></details>`).join('') : `<div class="vacio">Sin tickets.</div>`}</div>
     <div class="seccion"><h3>Entradas y ajustes del día</h3>${movimientosHTML(movs)}</div>
   </div>`;
 }
 
 /* ---- Ajustes ---- */
 function vistaAjustes(){
-  const n = estado.negocio;
+  const n = estado.negocio; const hayPin = tienePin();
   return `<div class="ajustes">
     <h2>Ajustes</h2>
     <form class="seccion" data-form="negocio"><h3>Negocio</h3>
       <div class="campos-2"><div class="campo"><label for="aj-nombre">Nombre</label><input id="aj-nombre" value="${esc(n.nombre)}" maxlength="40"></div><div class="campo"><label for="aj-moneda">Moneda</label><input id="aj-moneda" value="${esc(n.moneda)}" maxlength="4"></div></div>
-      <div class="campo"><label for="aj-pin">PIN de dirección (4 dígitos, vacío = sin PIN)</label><input id="aj-pin" inputmode="numeric" maxlength="4" value="${esc(n.pin)}" autocomplete="off"></div>
+      <div class="campo"><label for="aj-pin">${hayPin ? 'Cambiar el PIN de dirección (4 dígitos, vacío = se queda igual)' : 'PIN de dirección (4 dígitos, vacío = sin PIN)'}</label><input id="aj-pin" inputmode="numeric" maxlength="4" value="" autocomplete="off" placeholder="${hayPin ? '••••' : ''}"></div>
+      ${hayPin ? `<label class="casilla"><input type="checkbox" id="aj-quitar-pin"> Quitar el PIN</label>` : ''}
       <p class="ayuda">Con PIN, Dashboard, Dirección, Corte y Ajustes piden la clave. Vender queda libre para quien atienda la caja.</p>
       <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
     </form>
     <div class="seccion"><h3>Respaldo</h3>
-      <p>Los datos viven solo en este navegador. Copia el respaldo de vez en cuando y guárdalo en tus notas o en un correo a ti mismo. Para pasar el sistema a otra tableta, pega ahí el respaldo y restaura.</p>
+      <p>${MODO === 'servidor' ? 'Los datos viven en el servidor. Este respaldo es una copia de los productos y de los últimos 60 días, por si quieres guardarla o pasarla a otra instalación.' : 'Los datos viven solo en este navegador. Copia el respaldo de vez en cuando y guárdalo en tus notas o en un correo a ti mismo.'}</p>
       <div class="botonera"><button class="btn borde" data-accion="respaldo-copiar">Copiar respaldo</button><label class="btn borde archivo">Cargar archivo<input type="file" id="aj-archivo" accept="application/json,.json,.txt" hidden></label></div>
       <textarea id="aj-respaldo" class="plano" rows="4" placeholder="Pega aquí un respaldo para restaurarlo" spellcheck="false"></textarea>
       <div class="botonera"><button class="btn" data-accion="respaldo-restaurar">Restaurar desde el texto</button></div>
     </div>
     <div class="seccion"><h3>Datos</h3>
-      <div class="botonera"><button class="btn borde" data-accion="ejemplo-cargar">Cargar los 8 productos de ejemplo</button><button class="btn borde peligro" data-accion="borrar-todo">Borrar todo</button></div>
+      <p>«Datos de ejemplo» sirve para enseñar el sistema con una semana de ventas inventadas. «Empezar en limpio» deja los productos y precios, pero borra ventas y existencias.</p>
+      <div class="botonera"><button class="btn borde" data-accion="ejemplo-cargar">Cargar datos de ejemplo</button><button class="btn borde" data-accion="empezar-limpio">Empezar en limpio</button><button class="btn borde peligro" data-accion="borrar-todo">Borrar todo</button></div>
     </div>
   </div>`;
 }
-
 /* ================= Modales ================= */
-let modalOpts = null;
 function abrirModal(tipo, opts){
   modalActual = tipo; modalOpts = opts || null;
   pintarModal();
   $('#modal').hidden = false;
   const conTeclado = tipo === 'pesar' || tipo === 'cobrar' || tipo === 'pin';
-  const foco = conTeclado ? null : $('#hoja input:not([type="file"]), #hoja select');
+  const foco = conTeclado ? null : $('#hoja input:not([type="file"]):not(#wa-tel), #hoja select');
   if (foco) foco.focus(); else $('#hoja').focus();
 }
 function pintarModal(){
   const h = {
-    pesar: pesarHTML, cobrar: cobrarHTML, pin: pinHTML, editar: editarHTML,
+    pesar: pesarHTML, cobrar: cobrarHTML, pin: pinHTML, editar: editarHTML, 'venta-hecha': ventaHechaHTML,
     entrada: () => entradaHTML(modalOpts && modalOpts.pid),
     ajustar: () => ajustarHTML(modalOpts.pid),
     confirmar: () => confirmHTML(modalOpts)
@@ -828,13 +924,13 @@ function pesarHTML(){
   const quedan = Math.max(0, p.existencia);
   const falta = cantidad > 0 && cantidad > p.existencia;
   let rapidos;
-  if (!esKg) rapidos = [1, 2, 3, 6, 12].map(v => `<button type="button" data-accion="pesa-rapido" data-v="${v}">${v} pz</button>`).join('');
+  if (!esKg) rapidos = [1, 2, 3, 6, 12].map(v => `<button type="button" data-accion="pesa-rapido" data-v="${v}">${v} ${unidadCorta(p.unidad)}</button>`).join('');
   else if (pesa.modo === 'dinero') rapidos = [10, 20, 50, 100].map(v => `<button type="button" data-accion="pesa-rapido" data-v="${v}">${esc(moneda())}${v}</button>`).join('');
   else rapidos = [['0.25', '250 g'], ['0.5', '500 g'], ['1', '1 kg'], ['2', '2 kg']].map(([v, l]) => `<button type="button" data-accion="pesa-rapido" data-v="${v}">${l}</button>`).join('')
     + `<button type="button" data-accion="pesa-gramos" aria-pressed="${pesa.gramos}">Teclear en gramos</button>`;
-  const grande = pesa.modo === 'dinero' ? dinero(num(pesa.texto)) : (pesa.texto || '0') + (esKg ? (pesa.gramos ? ' g' : ' kg') : ' pz');
+  const grande = pesa.modo === 'dinero' ? dinero(num(pesa.texto)) : (pesa.texto || '0') + (esKg ? (pesa.gramos ? ' g' : ' kg') : ' ' + unidadCorta(p.unidad));
   const chico = pesa.modo === 'dinero' ? `≈ ${cantidadTxt(cantidad, p.unidad)}` : `= ${dinero(importe)}`;
-  return `<div class="cab-modal">${ilusDe(p, 'mini')}<div><h2>${esc(p.nombre)}</h2><p class="sub">${dinero(p.precio)} por ${esKg ? 'kilo' : 'pieza'} · quedan ${cantidadTxt(quedan, p.unidad)}</p></div></div>
+  return `<div class="cab-modal">${ilusDe(p, 'mini')}<div><h2>${esc(p.nombre)}</h2><p class="sub">${dinero(p.precio)} por ${unidadLarga(p.unidad)} · quedan ${cantidadTxt(quedan, p.unidad)}</p></div></div>
     ${esKg ? `<div class="segmento"><button type="button" data-accion="pesa-modo" data-v="peso" aria-pressed="${pesa.modo === 'peso'}">Por peso</button><button type="button" data-accion="pesa-modo" data-v="dinero" aria-pressed="${pesa.modo === 'dinero'}">Por dinero</button></div>` : ''}
     <div class="pantalla${falta ? ' alerta' : ''}"><div class="grande">${grande}</div><div class="chico">${falta ? 'Solo quedan ' + cantidadTxt(quedan, p.unidad) + ' · ' : ''}${chico}</div></div>
     <div class="rapidos">${rapidos}</div>
@@ -864,22 +960,44 @@ function cobrarHTML(){
     ${tecladoHTML()}
     <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Volver</button><button type="button" class="btn dinero" data-accion="confirmar-venta" ${ok ? '' : 'disabled'}>Confirmar venta</button></div>`;
 }
+function aplicarVentaLocal(v){
+  v.lineas.forEach(l => {
+    const p = prod(l.pid); if (p) p.existencia = r3(p.existencia - l.cantidad);
+    estado.movimientos.push({id: uid(), ts: v.ts, tipo: 'venta', pid: l.pid, nombre: l.nombre, cantidad: l.cantidad, unidad: l.unidad, nota: ''});
+  });
+  estado.ventas.push(v);
+  if (estado.movimientos.length > 3000) estado.movimientos = estado.movimientos.slice(-3000);
+}
 function confirmarVenta(){
   if (!ticket.length) return;
   const total = totalTicket();
   const rec = cobro && cobro.texto ? num(cobro.texto) : total;
   if (rec < total) return;
-  const ts = Date.now();
-  const lineas = ticket.map(l => Object.assign({}, l));
-  lineas.forEach(l => {
-    const p = prod(l.pid); if (p) p.existencia = r3(p.existencia - l.cantidad);
-    estado.movimientos.push({id: uid(), ts, tipo: 'venta', pid: l.pid, nombre: l.nombre, cantidad: l.cantidad, unidad: l.unidad, nota: ''});
-  });
-  estado.ventas.push({id: uid(), ts, lineas, total, recibido: r2(rec), cambio: r2(rec - total)});
-  if (estado.movimientos.length > 3000) estado.movimientos = estado.movimientos.slice(-3000);
-  ticket = []; ticketAbierto = false;
-  guardar(); cerrarModal(); render(); snapshot();
-  toast(rec > total ? `Venta registrada · cambio ${dinero(rec - total)}` : 'Venta registrada');
+  const venta = {id: uid(), ts: Date.now(), lineas: ticket.map(l => Object.assign({}, l)), total, recibido: r2(rec), cambio: r2(rec - total)};
+  aplicarVentaLocal(venta); guardar();
+  ticket = []; ticketAbierto = false; ultimaVenta = venta; snapshot();
+  cerrarModal(); render(); abrirModal('venta-hecha');
+  if (MODO === 'servidor') enviarVenta(venta);
+}
+
+/* ---- Venta registrada + WhatsApp ---- */
+function textoTicket(v){
+  const n = estado.negocio.nombre || 'Verdulería';
+  const lineas = v.lineas.map(l => `• ${l.nombre}: ${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)} = ${dinero(l.importe)}`).join('\n');
+  return `🧾 *${n}*\n${fechaTxt(fechaLocal(v.ts))}, ${horaTxt(v.ts)}\n\n${lineas}\n\n*Total: ${dinero(v.total)}*\nRecibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}\n\n¡Gracias por su compra!`;
+}
+function enlaceWA(texto, tel){
+  let n = String(tel || '').replace(/\D/g, '');
+  if (n.length === 10) n = '52' + n;
+  return (n.length >= 11 ? `https://wa.me/${n}` : 'https://wa.me/') + '?text=' + encodeURIComponent(texto);
+}
+function ventaHechaHTML(){
+  const v = ultimaVenta;
+  return `<div class="hecho"><div class="hecho-icono" aria-hidden="true">✓</div><h2>Venta registrada</h2>
+    <div class="pantalla"><div class="chico">Total ${dinero(v.total)} · recibido ${dinero(v.recibido)}</div><div class="chico">Cambio</div><div class="grande cambio">${dinero(v.cambio)}</div></div>
+    <div class="campo"><label for="wa-tel">WhatsApp del cliente (opcional)</label><input id="wa-tel" inputmode="numeric" placeholder="10 dígitos, o vacío y eliges el contacto" maxlength="15" autocomplete="off"></div>
+    <a class="btn wa grande" id="wa-enlace" href="${enlaceWA(textoTicket(v))}" target="_blank" rel="noopener">Enviar ticket por WhatsApp</a>
+    <button type="button" class="btn primario grande" data-accion="cerrar">Nueva venta</button></div>`;
 }
 
 /* ---- PIN ---- */
@@ -889,6 +1007,20 @@ function pinHTML(){
     ${tecladoHTML()}
     <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button></div>`;
 }
+async function verificarPin(){
+  const dado = pin.texto;
+  if (MODO === 'local') { if (dado === estado.negocio.pin) { desbloqueado = true; pinCorrecto(); } else pinMal(); return; }
+  const r = await llamar('POST', '/pin', {pin: dado});
+  if (r.status === 0) { marcarRed(false); toast('Sin señal. Inténtalo otra vez.'); pin.texto = ''; if (modalActual === 'pin') pintarModal(); return; }
+  marcarRed(true);
+  if (r.ok) { token = (r.datos && r.datos.token) || ''; escribirSS(CLAVE_TOKEN, token); pinCorrecto(); } else pinMal();
+}
+function pinCorrecto(){
+  const p = pin; cerrarModal();
+  if (p.reintentar) ejecutar(p.reintentar).then(ok => { if (ok) { render(); toast('Guardado'); } });
+  else ir(p.destino);
+}
+function pinMal(){ pin.mal = true; pin.texto = ''; toast('PIN incorrecto'); if (modalActual === 'pin') pintarModal(); }
 
 /* ---- Entrada ---- */
 function entradaHTML(pid){
@@ -897,7 +1029,7 @@ function entradaHTML(pid){
   return `<h2>Declarar entrada</h2><p class="sub">Lo que llegó. Se suma a la existencia y el nivel vuelve a 100.</p>
     <form data-form="entrada">
       <div class="campo"><label for="ent-prod">Producto</label><select id="ent-prod">${opciones}</select></div>
-      <div class="campo"><label for="ent-cant">Cantidad (<span id="ent-unidad">${p.unidad === 'kg' ? 'kg' : 'piezas'}</span>)</label><input id="ent-cant" type="number" min="0.001" step="any" inputmode="decimal" required placeholder="0"></div>
+      <div class="campo"><label for="ent-cant">Cantidad (<span id="ent-unidad">${unidadPlural(p.unidad)}</span>)</label><input id="ent-cant" type="number" min="0.001" step="any" inputmode="decimal" required placeholder="0"></div>
       <div class="campo"><label for="ent-nota">Nota (opcional)</label><input id="ent-nota" type="text" placeholder="Proveedor, costo, lote…" maxlength="60"></div>
       <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="submit" class="btn primario">Declarar</button></div>
     </form>`;
@@ -908,7 +1040,7 @@ function ajustarHTML(pid){
   const p = prod(pid);
   return `<div class="cab-modal">${ilusDe(p, 'mini')}<div><h2>Ajustar ${esc(p.nombre)}</h2><p class="sub">El sistema dice ${cantidadTxt(p.existencia, p.unidad)}. Escribe lo que hay de verdad.</p></div></div>
     <form data-form="ajustar" data-id="${p.id}">
-      <div class="campo"><label for="aj-real">Existencia real (${p.unidad === 'kg' ? 'kg' : 'piezas'})</label><input id="aj-real" type="number" min="0" step="any" inputmode="decimal" required value="${Math.max(0, p.existencia)}"></div>
+      <div class="campo"><label for="aj-real">Existencia real (${unidadPlural(p.unidad)})</label><input id="aj-real" type="number" min="0" step="any" inputmode="decimal" required value="${Math.max(0, p.existencia)}"></div>
       <div class="campo"><label for="aj-motivo">Motivo</label><select id="aj-motivo"><option value="ajuste">Conteo</option><option value="merma">Merma (se echó a perder)</option></select></div>
       <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="submit" class="btn primario">Guardar</button></div>
     </form>`;
@@ -917,13 +1049,13 @@ function ajustarHTML(pid){
 /* ---- Editar / nuevo ---- */
 function abrirEditar(id){
   const p = id ? prod(id) : null;
-  edicion = p ? {id: p.id, nombre: p.nombre, unidad: p.unidad, precio: p.precio, ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
-              : {id: null, nombre: '', unidad: 'kg', precio: '', ilus: 'canasta', emoji: '', foto: ''};
+  edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
+              : {id: null, nombre: '', descripcion: '', unidad: 'kg', precio: '', ilus: 'canasta', emoji: '', foto: ''};
   abrirModal('editar');
 }
 function sincronizarEdicion(){
-  const n = $('#ed-nombre'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji');
-  if (n) edicion.nombre = n.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
+  const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji');
+  if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
 }
 function editarHTML(){
   const e = edicion;
@@ -932,8 +1064,9 @@ function editarHTML(){
     <form data-form="editar">
       <div class="vista-previa">${ilusDe(e)}<div><b id="prev-nombre" style="font-family:var(--display);font-size:1.1rem">${esc(e.nombre) || 'Nuevo producto'}</b><p class="ayuda">Así se verá en la caja.</p></div></div>
       <div class="campo"><label for="ed-nombre">Nombre</label><input id="ed-nombre" required maxlength="30" value="${esc(e.nombre)}" placeholder="Jitomate"></div>
+      <div class="campo"><label for="ed-desc">Descripción (opcional)</label><input id="ed-desc" maxlength="60" value="${esc(e.descripcion)}" placeholder="Saladet, de Sinaloa"></div>
       <div class="campos-2">
-        <div class="campo"><label for="ed-unidad">Se vende por</label><select id="ed-unidad"><option value="kg"${e.unidad === 'kg' ? ' selected' : ''}>Kilo (se pesa)</option><option value="pieza"${e.unidad === 'pieza' ? ' selected' : ''}>Pieza</option></select></div>
+        <div class="campo"><label for="ed-unidad">Se vende por</label><select id="ed-unidad"><option value="kg"${e.unidad === 'kg' ? ' selected' : ''}>Kilo (se pesa)</option><option value="pieza"${e.unidad === 'pieza' ? ' selected' : ''}>Pieza</option><option value="manojo"${e.unidad === 'manojo' ? ' selected' : ''}>Manojo</option></select></div>
         <div class="campo"><label for="ed-precio">Precio</label><input id="ed-precio" type="number" min="0" step="any" inputmode="decimal" required value="${esc(e.precio)}" placeholder="0"></div>
       </div>
       <div class="campo"><label>Ilustración</label><div class="galeria">${galeria}</div></div>
@@ -969,10 +1102,83 @@ function confirmHTML(o){
     <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="button" class="btn ${o.peligro ? 'borde peligro' : 'primario'}" data-accion="${o.accion}">${esc(o.boton)}</button></div>`;
 }
 
+/* ================= Servidor: llamadas, cola y sincronía ================= */
+async function llamar(metodo, ruta, cuerpo){
+  const cab = {'Content-Type': 'application/json'}; if (token) cab['X-Token'] = token;
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(API + ruta, {method: metodo, headers: cab, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo), signal: ctrl.signal, cache: 'no-store'});
+    clearTimeout(t);
+    let datos = null; try { datos = await r.json(); } catch (e) {}
+    return {ok: r.ok, status: r.status, datos};
+  } catch (e) { clearTimeout(t); return {ok: false, status: 0, datos: null}; }
+}
+function marcarRed(ok){ enLinea = ok; pintarRed(); }
+function pintarRed(){
+  const el = $('#red'); if (!el) return;
+  const n = cola.length;
+  if (MODO !== 'servidor' || (enLinea && !n)) { el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = !enLinea ? (n ? `Sin señal · ${n} ${n === 1 ? 'venta guardada' : 'ventas guardadas'} en este teléfono, se envían al volver la señal` : 'Sin señal: las ventas se guardan en este teléfono y se envían al volver la señal')
+                            : `Enviando ${n} ${n === 1 ? 'venta pendiente' : 'ventas pendientes'}…`;
+  el.classList.toggle('mal', !enLinea);
+}
+function adoptar(datos){
+  if (!datos || !Array.isArray(datos.productos)) return;
+  if (typeof datos.token === 'string') { token = datos.token; escribirSS(CLAVE_TOKEN, token); }
+  estado = datos; migrar();
+  cola.forEach(v => { if (!estado.ventas.some(x => x.id === v.id)) aplicarVentaLocal(v); });
+  guardar();
+}
+/* Operación de dirección o ajustes. op = {metodo, ruta, cuerpo, local()}; devuelve true si quedó hecha. */
+async function ejecutar(op){
+  if (MODO === 'local') { const err = op.local(); if (err) { toast(err); return false; } guardar(); return true; }
+  const r = await llamar(op.metodo || 'POST', op.ruta, op.cuerpo);
+  if (r.status === 0) { marcarRed(false); toast('Sin señal. Inténtalo otra vez cuando vuelva.'); return false; }
+  marcarRed(true);
+  if (r.status === 401) { token = ''; escribirSS(CLAVE_TOKEN, ''); pin = {texto: '', destino: vista, mal: false, reintentar: op}; abrirModal('pin'); return false; }
+  if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo guardar'); return false; }
+  adoptar(r.datos); return true;
+}
+function encolar(v){
+  if (!cola.some(x => x.id === v.id)) { cola.push(v); escribirLS(CLAVE_COLA, JSON.stringify(cola)); }
+  pintarRed();
+}
+async function enviarVenta(v){
+  const r = await llamar('POST', '/ventas', v);
+  if (r.status === 0) { marcarRed(false); encolar(v); return false; }
+  marcarRed(true);
+  if (r.ok) { adoptar(r.datos); if (!modalActual) render(); return true; }
+  toast((r.datos && r.datos.error) || 'El servidor rechazó la venta'); return false;
+}
+async function enviarCola(){
+  if (MODO !== 'servidor' || !cola.length || sincronizando) return;
+  sincronizando = true; let cambio = false;
+  try {
+    while (cola.length) {
+      const v = cola[0]; const r = await llamar('POST', '/ventas', v);
+      if (r.status === 0) { marcarRed(false); break; }
+      marcarRed(true);
+      cola.shift(); escribirLS(CLAVE_COLA, JSON.stringify(cola)); cambio = true;
+      if (r.ok) adoptar(r.datos); else toast('Una venta pendiente fue rechazada: ' + ((r.datos && r.datos.error) || ''));
+    }
+  } finally {
+    sincronizando = false; pintarRed();
+    if (cambio && !modalActual && vista !== 'direccion' && vista !== 'ajustes') render();
+  }
+}
+async function sincronizar(){
+  if (MODO !== 'servidor' || document.hidden || modalActual || vista === 'direccion' || vista === 'ajustes' || sincronizando) return;
+  const r = await llamar('GET', '/estado');
+  if (r.status === 0) { marcarRed(false); return; }
+  marcarRed(true);
+  if (r.ok) { const antes = JSON.stringify(estado); adoptar(r.datos); if (JSON.stringify(estado) !== antes) render(); }
+}
+
 /* ================= Navegación ================= */
 function ir(v){
   if (!VISTAS.includes(v)) v = 'vender';
-  if (estado.negocio.pin && v !== 'vender' && !desbloqueado) { pin = {texto: '', destino: v, mal: false}; abrirModal('pin'); return; }
+  if (v !== 'vender' && tienePin() && !abierto()) { pin = {texto: '', destino: v, mal: false}; abrirModal('pin'); return; }
   vista = v;
   try { history.replaceState(null, '', '#' + v); } catch (e) {}
   render(); $('#main').scrollTop = 0; snapshot();
@@ -980,11 +1186,22 @@ function ir(v){
 function snapshot(){
   try { const h = window.claude && window.claude.hot; if (h && typeof h.snapshot === 'function') h.snapshot({ticket, vista}); } catch (e) {}
 }
+function migrar(){
+  estado.negocio = Object.assign({nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: false}, estado.negocio);
+  estado.movimientos = Array.isArray(estado.movimientos) ? estado.movimientos : [];
+  estado.ventas = Array.isArray(estado.ventas) ? estado.ventas : [];
+  estado.productos = Array.isArray(estado.productos) ? estado.productos : [];
+  estado.productos.forEach(p => {
+    p.id = p.id || uid(); p.unidad = p.unidad === 'pieza' || p.unidad === 'manojo' ? p.unidad : 'kg'; p.activo = p.activo !== false; p.descripcion = p.descripcion || '';
+    p.precio = num(p.precio); p.existencia = num(p.existencia); p.declarado = num(p.declarado);
+    p.ilus = ILUS[p.ilus] ? p.ilus : 'canasta'; p.emoji = p.emoji || ''; p.foto = p.foto || '';
+  });
+}
 
 /* ================= Acciones ================= */
 const acciones = {
   ir: d => ir(d.vista),
-  bloquear: () => { desbloqueado = false; ir('vender'); toast('Dirección bloqueada'); },
+  bloquear: () => { token = ''; escribirSS(CLAVE_TOKEN, ''); desbloqueado = false; ir('vender'); toast('Dirección bloqueada'); },
   pesar: d => { const p = prod(d.id); if (!p) return; pesa = {pid: d.id, modo: 'peso', texto: '', gramos: false}; abrirModal('pesar'); },
   'pesa-modo': d => { pesa.modo = d.v; pesa.texto = ''; pintarModal(); },
   'pesa-gramos': () => { pesa.gramos = !pesa.gramos; pesa.texto = ''; pintarModal(); },
@@ -1010,19 +1227,17 @@ const acciones = {
     } else if (modalActual === 'pin') {
       if (d.v === '.') return;
       if (d.v === 'del') pin.texto = pin.texto.slice(0, -1); else if (pin.texto.length < 4) pin.texto += d.v;
-      pin.mal = false;
-      if (pin.texto.length === 4) {
-        if (pin.texto === estado.negocio.pin) { desbloqueado = true; const dest = pin.destino; cerrarModal(); ir(dest); return; }
-        pin.mal = true; pin.texto = ''; toast('PIN incorrecto');
-      }
-      pintarModal();
+      pin.mal = false; pintarModal();
+      if (pin.texto.length === 4) verificarPin();
     }
   },
-  toggle: d => {
-    const p = prod(d.id); if (!p) return; p.activo = !p.activo; guardar();
-    if (vista === 'direccion') { $$(`[data-accion="toggle"][data-id="${p.id}"]`).forEach(b => b.setAttribute('aria-checked', String(p.activo))); const t = $('#dir-tarjetas'); if (t) t.innerHTML = tarjetasDireccionHTML(); }
+  toggle: async d => {
+    const p = prod(d.id); if (!p) return; const nuevo = !p.activo;
+    const ok = await ejecutar({ruta: `/productos/${p.id}/activo`, cuerpo: {activo: nuevo}, local: () => { p.activo = nuevo; }});
+    if (!ok) return;
+    if (vista === 'direccion') { $$(`[data-accion="toggle"][data-id="${p.id}"]`).forEach(b => b.setAttribute('aria-checked', String(nuevo))); const t = $('#dir-tarjetas'); if (t) t.innerHTML = tarjetasDireccionHTML(); }
     else render();
-    toast(p.activo ? `${p.nombre} en venta` : `${p.nombre} apagado`);
+    toast(nuevo ? `${p.nombre} en venta` : `${p.nombre} apagado`);
   },
   entrada: d => { if (!estado.productos.length) { toast('Primero crea un producto'); return; } abrirModal('entrada', {pid: d.id}); },
   ajustar: d => abrirModal('ajustar', {pid: d.id}),
@@ -1030,28 +1245,26 @@ const acciones = {
   nuevo: () => abrirEditar(null),
   'elegir-ilus': d => { sincronizarEdicion(); edicion.ilus = d.v; edicion.emoji = ''; edicion.foto = ''; const em = $('#ed-emoji'); if (em) em.value = ''; pintarVistaPrevia(); },
   'quitar-foto': () => { sincronizarEdicion(); edicion.foto = ''; pintarModal(); },
-  eliminar: (d, b) => {
+  eliminar: async (d, b) => {
     if (!b.dataset.confirmado) { b.dataset.confirmado = '1'; b.textContent = '¿Seguro? Sí, eliminar'; return; }
     const p = prod(d.id); if (!p) return;
-    estado.productos = estado.productos.filter(x => x.id !== d.id);
-    guardar(); cerrarModal(); render(); toast(`${p.nombre} eliminado`);
+    const ok = await ejecutar({metodo: 'DELETE', ruta: `/productos/${p.id}`, local: () => { estado.productos = estado.productos.filter(x => x.id !== p.id); }});
+    if (ok) { cerrarModal(); render(); toast(`${p.nombre} eliminado`); }
   },
-  'empezar-limpio': () => abrirModal('confirmar', {titulo: 'Empezar en limpio', texto: 'Se borran las ventas y los movimientos de ejemplo, y las existencias quedan en cero. Los 8 productos y sus precios se conservan para que los edites.', boton: 'Sí, empezar', accion: 'empezar-limpio-si'}),
-  'empezar-limpio-si': () => {
-    estado.negocio.ejemplo = false; estado.ventas = []; estado.movimientos = [];
-    estado.productos.forEach(p => { p.existencia = 0; p.declarado = 0; });
-    ticket = []; guardar(); cerrarModal(); render(); snapshot(); toast('Listo. Declara tus entradas en Dirección.');
+  'empezar-limpio': () => abrirModal('confirmar', {titulo: 'Empezar en limpio', texto: 'Se borran las ventas y los movimientos, y las existencias quedan en cero. Los productos y sus precios se conservan.', boton: 'Sí, empezar', accion: 'empezar-limpio-si'}),
+  'empezar-limpio-si': async () => {
+    const ok = await ejecutar({ruta: '/limpio', cuerpo: {}, local: () => { estado.negocio.ejemplo = false; estado.ventas = []; estado.movimientos = []; estado.productos.forEach(p => { p.existencia = 0; p.declarado = 0; }); }});
+    if (ok) { ticket = []; cerrarModal(); render(); snapshot(); toast('Listo. Carga precios y stock en Dirección.'); }
   },
-  'ejemplo-cargar': () => {
-    const nombres = new Set(estado.productos.map(p => p.nombre.toLowerCase()));
-    let n = 0;
-    productosBase().forEach(p => { if (!nombres.has(p.nombre.toLowerCase())) { p.existencia = 0; p.declarado = 0; p.activo = true; estado.productos.push(p); n++; } });
-    guardar(); render(); toast(n ? `${n} productos agregados sin existencia` : 'Ya tienes esos productos');
+  'ejemplo-cargar': () => abrirModal('confirmar', {titulo: 'Cargar datos de ejemplo', texto: 'Se reemplaza todo por los 8 productos con existencias y una semana de ventas inventadas, para enseñar el sistema. Después puedes «Empezar en limpio».', boton: 'Sí, cargar', accion: 'ejemplo-cargar-si'}),
+  'ejemplo-cargar-si': async () => {
+    const ok = await ejecutar({ruta: '/ejemplo', cuerpo: {}, local: () => { const pinLocal = estado.negocio.pin; estado = semilla(); estado.negocio.pin = pinLocal; }});
+    if (ok) { ticket = []; cerrarModal(); ir('dashboard'); toast('Datos de ejemplo cargados'); }
   },
-  'borrar-todo': () => abrirModal('confirmar', {titulo: 'Borrar todo', texto: 'Se borran productos, ventas, movimientos y ajustes de este navegador. No hay forma de deshacerlo si no tienes un respaldo copiado.', boton: 'Sí, borrar todo', accion: 'borrar-todo-si', peligro: true}),
-  'borrar-todo-si': () => {
-    estado = {negocio: {nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: false}, productos: [], movimientos: [], ventas: []};
-    ticket = []; desbloqueado = false; guardar(); cerrarModal(); ir('direccion'); toast('Todo borrado');
+  'borrar-todo': () => abrirModal('confirmar', {titulo: 'Borrar todo', texto: 'Se borran ventas, movimientos, productos y ajustes. Queda el catálogo básico, todo apagado y sin existencia. No se puede deshacer sin un respaldo.', boton: 'Sí, borrar todo', accion: 'borrar-todo-si', peligro: true}),
+  'borrar-todo-si': async () => {
+    const ok = await ejecutar({ruta: '/borrar', cuerpo: {}, local: () => { estado = {negocio: {nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: false}, productos: productosCatalogo(), movimientos: [], ventas: []}; desbloqueado = false; }});
+    if (ok) { ticket = []; cerrarModal(); ir('direccion'); toast('Todo borrado'); }
   },
   'respaldo-copiar': () => {
     const txt = JSON.stringify(estado); const ta = $('#aj-respaldo'); if (ta) ta.value = txt;
@@ -1061,73 +1274,72 @@ const acciones = {
   },
   'respaldo-restaurar': () => restaurar(($('#aj-respaldo') || {}).value || '')
 };
-function restaurar(txt){
+async function restaurar(txt){
   let d = null;
   try { d = JSON.parse(txt); } catch (e) {}
   if (!d || !Array.isArray(d.productos) || !d.negocio) { toast('Ese texto no es un respaldo válido'); return; }
-  estado = d; migrar(); ticket = []; guardar(); render(); snapshot(); toast('Respaldo restaurado');
-}
-function migrar(){
-  estado.negocio = Object.assign({nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: false}, estado.negocio);
-  estado.movimientos = Array.isArray(estado.movimientos) ? estado.movimientos : [];
-  estado.ventas = Array.isArray(estado.ventas) ? estado.ventas : [];
-  estado.productos.forEach(p => {
-    p.id = p.id || uid(); p.unidad = p.unidad === 'pieza' ? 'pieza' : 'kg'; p.activo = p.activo !== false;
-    p.precio = num(p.precio); p.existencia = num(p.existencia); p.declarado = num(p.declarado);
-    p.ilus = ILUS[p.ilus] ? p.ilus : 'canasta'; p.emoji = p.emoji || ''; p.foto = p.foto || '';
-  });
+  const ok = await ejecutar({ruta: '/restaurar', cuerpo: d, local: () => { estado = d; migrar(); }});
+  if (ok) { ticket = []; render(); snapshot(); toast('Respaldo restaurado'); }
 }
 
 /* ================= Formularios ================= */
 const formularios = {
-  entrada: () => {
-    const p = prod($('#ent-prod').value); const c = num($('#ent-cant').value);
+  entrada: async () => {
+    const p = prod($('#ent-prod').value); const c = num($('#ent-cant').value); const nota = $('#ent-nota').value.trim();
     if (!p || !(c > 0)) { toast('Escribe una cantidad'); return; }
-    p.existencia = r3(Math.max(0, p.existencia) + c); p.declarado = p.existencia;
-    estado.movimientos.push({id: uid(), ts: Date.now(), tipo: 'entrada', pid: p.id, nombre: p.nombre, cantidad: c, unidad: p.unidad, nota: $('#ent-nota').value.trim()});
-    guardar(); cerrarModal(); render(); toast(`${p.nombre}: +${cantidadTxt(c, p.unidad)} · nivel 100`);
+    const ok = await ejecutar({ruta: '/entradas', cuerpo: {pid: p.id, cantidad: c, nota}, local: () => {
+      p.existencia = r3(Math.max(0, p.existencia) + c); p.declarado = p.existencia;
+      estado.movimientos.push({id: uid(), ts: Date.now(), tipo: 'entrada', pid: p.id, nombre: p.nombre, cantidad: c, unidad: p.unidad, nota});
+    }});
+    if (ok) { cerrarModal(); render(); toast(`${p.nombre}: +${cantidadTxt(c, p.unidad)} · nivel 100`); }
   },
-  ajustar: f => {
+  ajustar: async f => {
     const p = prod(f.dataset.id); if (!p) return;
     const nueva = Math.max(0, num($('#aj-real').value)); const motivo = $('#aj-motivo').value;
-    const delta = r3(nueva - p.existencia);
-    p.existencia = nueva; if (nueva > p.declarado) p.declarado = nueva;
-    const tipo = motivo === 'merma' ? 'merma' : 'ajuste';
-    estado.movimientos.push({id: uid(), ts: Date.now(), tipo, pid: p.id, nombre: p.nombre, cantidad: tipo === 'merma' ? Math.abs(delta) : delta, unidad: p.unidad, nota: ''});
-    guardar(); cerrarModal(); render(); toast(`${p.nombre} ajustado a ${cantidadTxt(nueva, p.unidad)}`);
+    const ok = await ejecutar({ruta: '/ajustes', cuerpo: {pid: p.id, existencia: nueva, motivo}, local: () => {
+      const delta = r3(nueva - p.existencia); p.existencia = nueva; if (nueva > p.declarado) p.declarado = nueva;
+      const tipo = motivo === 'merma' ? 'merma' : 'ajuste';
+      estado.movimientos.push({id: uid(), ts: Date.now(), tipo, pid: p.id, nombre: p.nombre, cantidad: tipo === 'merma' ? Math.abs(delta) : delta, unidad: p.unidad, nota: ''});
+    }});
+    if (ok) { cerrarModal(); render(); toast(`${p.nombre} ajustado a ${cantidadTxt(nueva, p.unidad)}`); }
   },
-  editar: () => {
-    sincronizarEdicion(); const e = edicion;
-    const nombre = e.nombre.trim(); const precio = num(e.precio);
-    if (!nombre) { toast('Ponle nombre al producto'); return; }
-    if (e.id) { const p = prod(e.id); Object.assign(p, {nombre, unidad: e.unidad, precio: r2(precio), ilus: e.ilus, emoji: e.emoji, foto: e.foto}); toast('Producto actualizado'); }
-    else { estado.productos.push({id: uid(), nombre, unidad: e.unidad, precio: r2(precio), ilus: e.ilus, emoji: e.emoji, foto: e.foto, activo: true, declarado: 0, existencia: 0}); toast('Producto creado. Declárale una entrada.'); }
-    guardar(); cerrarModal(); render();
-  },
-  carga: () => {
-    let cambios = 0; const ts = Date.now();
-    estado.productos.forEach(p => {
-      const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`);
-      if (ip && ip.value !== '') { const v = r2(Math.max(0, num(ip.value))); if (v !== p.precio) { p.precio = v; cambios++; } }
-      if (is && is.value !== '') {
-        const v = r3(Math.max(0, num(is.value)));
-        if (v !== r3(Math.max(0, p.existencia))) {
-          const delta = r3(v - p.existencia); p.existencia = v; p.declarado = v;
-          estado.movimientos.push({id: uid(), ts, tipo: delta > 0 ? 'entrada' : 'ajuste', pid: p.id, nombre: p.nombre, cantidad: delta, unidad: p.unidad, nota: 'Carga desde Dirección'});
-          cambios++;
+  carga: async () => {
+    const items = estado.productos.map(p => { const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`); return {id: p.id, precio: ip ? ip.value : '', existencia: is ? is.value : ''}; });
+    const ok = await ejecutar({ruta: '/carga', cuerpo: {items}, local: () => {
+      const ts = Date.now();
+      items.forEach(it => {
+        const p = prod(it.id); if (!p) return;
+        if (it.precio !== '') { const v = r2(Math.max(0, num(it.precio))); if (v !== p.precio) p.precio = v; }
+        if (it.existencia !== '') {
+          const v = r3(Math.max(0, num(it.existencia)));
+          if (v !== r3(Math.max(0, p.existencia))) {
+            const delta = r3(v - p.existencia); p.existencia = v; p.declarado = v;
+            estado.movimientos.push({id: uid(), ts, tipo: delta > 0 ? 'entrada' : 'ajuste', pid: p.id, nombre: p.nombre, cantidad: delta, unidad: p.unidad, nota: 'Carga desde Dirección'});
+          }
         }
-      }
-    });
-    if (cambios) guardar();
-    render(); toast(cambios ? 'Precios y stock guardados' : 'No había cambios');
+      });
+    }});
+    if (ok) { render(); toast('Precios y stock guardados'); }
   },
-  negocio: () => {
-    const pinTxt = $('#aj-pin').value.trim();
+  editar: async () => {
+    sincronizarEdicion(); const e = edicion;
+    const nombre = e.nombre.trim(); const precio = r2(num(e.precio));
+    if (!nombre) { toast('Ponle nombre al producto'); return; }
+    const datos = {nombre, descripcion: (e.descripcion || '').trim(), unidad: e.unidad, precio, ilus: e.ilus, emoji: e.emoji, foto: e.foto};
+    const ok = await ejecutar(e.id
+      ? {metodo: 'PUT', ruta: `/productos/${e.id}`, cuerpo: datos, local: () => { Object.assign(prod(e.id), datos); }}
+      : {ruta: '/productos', cuerpo: datos, local: () => { estado.productos.push(Object.assign({id: uid(), activo: true, declarado: 0, existencia: 0}, datos)); }});
+    if (ok) { cerrarModal(); render(); toast(e.id ? 'Producto actualizado' : 'Producto creado. Cárgale precio y stock.'); }
+  },
+  negocio: async () => {
+    const pinTxt = $('#aj-pin').value.trim(); const quitar = !!($('#aj-quitar-pin') && $('#aj-quitar-pin').checked);
     if (pinTxt && !/^\d{4}$/.test(pinTxt)) { toast('El PIN son 4 números'); return; }
-    estado.negocio.nombre = $('#aj-nombre').value.trim() || 'Mi verdulería';
-    estado.negocio.moneda = $('#aj-moneda').value.trim() || '$';
-    estado.negocio.pin = pinTxt; if (pinTxt) desbloqueado = true;
-    guardar(); render(); toast('Ajustes guardados');
+    const nombre = $('#aj-nombre').value.trim() || 'Mi verdulería'; const mon = $('#aj-moneda').value.trim() || '$';
+    const ok = await ejecutar({metodo: 'PUT', ruta: '/negocio', cuerpo: {nombre, moneda: mon, pin: pinTxt, quitar_pin: quitar}, local: () => {
+      estado.negocio.nombre = nombre; estado.negocio.moneda = mon;
+      if (quitar) estado.negocio.pin = ''; else if (pinTxt) { estado.negocio.pin = pinTxt; desbloqueado = true; }
+    }});
+    if (ok) { render(); toast('Ajustes guardados'); }
   }
 };
 
@@ -1144,7 +1356,9 @@ document.addEventListener('submit', e => {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'buscar') { filtro = t.value; const w = $('#rejilla-wrap'); if (w) w.innerHTML = rejillaHTML(); }
+  else if (t.id === 'filtro-carga') { const q = t.value.trim().toLowerCase(); $$('.tabla-carga tbody tr').forEach(tr => { tr.hidden = !!q && !tr.dataset.nombre.includes(q); }); }
   else if (t.id === 'ed-emoji' || t.id === 'ed-nombre') { sincronizarEdicion(); if (t.id === 'ed-emoji' && edicion.emoji) edicion.foto = ''; pintarVistaPrevia(); }
+  else if (t.id === 'wa-tel' && ultimaVenta) { const a = $('#wa-enlace'); if (a) a.href = enlaceWA(textoTicket(ultimaVenta), t.value); }
 });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -1179,19 +1393,39 @@ document.addEventListener('keydown', e => {
 });
 
 /* ================= Arranque ================= */
-function start(hot){
-  estado = cargar() || semilla();
-  migrar();
+async function start(hot){
+  token = leerSS(CLAVE_TOKEN);
+  try { cola = JSON.parse(leerLS(CLAVE_COLA) || '[]'); if (!Array.isArray(cola)) cola = []; } catch (e) { cola = []; }
+  const r = await llamar('GET', '/estado');
+  if (r.ok && r.datos && r.datos.servidor) {
+    MODO = 'servidor'; escribirLS(CLAVE_MODO, 'servidor'); adoptar(r.datos);
+  } else if ((r.status === 0 || r.status >= 500) && leerLS(CLAVE_MODO) === 'servidor') {
+    MODO = 'servidor'; enLinea = false;
+    try { estado = JSON.parse(leerLS(CLAVE_CACHE) || 'null'); } catch (e) { estado = null; }
+    if (!estado || !Array.isArray(estado.productos)) estado = {negocio: {nombre: 'Mi verdulería', moneda: '$', tiene_pin: false, ejemplo: false}, productos: [], movimientos: [], ventas: []};
+    migrar(); cola.forEach(v => { if (!estado.ventas.some(x => x.id === v.id)) aplicarVentaLocal(v); });
+  } else {
+    MODO = 'local'; escribirLS(CLAVE_MODO, null);
+    estado = cargarLocal() || semilla(); migrar();
+  }
   const h = (location.hash || '').slice(1);
   if (VISTAS.includes(h)) vista = h;
   if (hot && typeof hot === 'object') { if (Array.isArray(hot.ticket)) ticket = hot.ticket; if (VISTAS.includes(hot.vista)) vista = hot.vista; }
-  if (estado.negocio.pin && vista !== 'vender' && !desbloqueado) vista = 'vender';
-  render();
+  if (vista !== 'vender' && tienePin() && !abierto()) vista = 'vender';
+  render(); pintarRed();
+  if (MODO === 'servidor') {
+    setInterval(sincronizar, 20000); setInterval(enviarCola, 10000);
+    window.addEventListener('online', () => { enviarCola(); sincronizar(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { enviarCola(); sincronizar(); } });
+    enviarCola();
+  }
+  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 const H = window.claude && window.claude.hot;
 if (H && typeof H.ready === 'function') H.ready(start); else start(H && H.data);
 })();
 </script>
+
 <!--ART-END-->
 </body>
 </html>

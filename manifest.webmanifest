@@ -1,0 +1,16 @@
+{
+  "name": "Verdulería al Peso",
+  "short_name": "Verdulería",
+  "description": "Caja y dirección de la verdulería",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F6EC",
+  "theme_color": "#2A8A4C",
+  "lang": "es",
+  "icons": [
+    {"src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "icono-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any"}
+  ]
+}
