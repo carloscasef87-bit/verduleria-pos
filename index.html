@@ -303,11 +303,17 @@ details.tk .linea{padding:4px 0 4px 12px}
 .pin-puntos i.lleno{background:var(--accent);border-color:var(--accent)}
 .pin-puntos.mal i{border-color:var(--bad);animation:tiembla .3s}
 @keyframes tiembla{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.galeria{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.galeria button{aspect-ratio:1;border-radius:10px;background:var(--paper-2);border:2px solid transparent;padding:5px}
-.galeria button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
-.galeria svg{width:100%;height:100%;display:block}
+.galeria{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:280px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--ground)}
+.galeria button{display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:10px;background:var(--paper);border:2px solid transparent;padding:6px 4px 5px;font-size:.68rem;font-weight:700;color:var(--muted);text-align:center;line-height:1.1;min-width:0}
+.galeria button svg{width:100%;height:auto;aspect-ratio:1;display:block}
+.galeria button span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.galeria button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .galeria svg [class^="anim-"]{animation:none}
+.emojis{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.emojis button{aspect-ratio:1;border-radius:10px;background:var(--paper-2);border:2px solid transparent;font-size:1.5rem;line-height:1;display:grid;place-items:center}
+.emojis button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.emoji-input{font-size:1.6rem;text-align:center}
+.foto-zona{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .vista-previa{display:flex;gap:12px;align-items:center}
 .vista-previa .ilus{width:72px}
 .archivo{display:inline-flex}
@@ -1051,15 +1057,28 @@ function abrirEditar(id){
   const p = id ? prod(id) : null;
   edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
               : {id: null, nombre: '', descripcion: '', unidad: 'kg', precio: '', ilus: 'canasta', emoji: '', foto: ''};
+  edicion.tipo = edicion.foto ? 'foto' : edicion.emoji ? 'emoji' : 'ilus';
   abrirModal('editar');
 }
 function sincronizarEdicion(){
   const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji');
   if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
 }
+const EMOJIS_SUGERIDOS = ['🍌','🍎','🍊','🍋','🍉','🍈','🍇','🍓','🍍','🥭','🍐','🍑','🍒','🥝','🥥','🫐','🍅','🧅','🥔','🥕','🌶️','🫑','🥬','🥒','🌽','🥦','🧄','🍠','🍄','🌿','🥜','🫛','🍆','🌵'];
 function editarHTML(){
   const e = edicion;
-  const galeria = Object.keys(ILUS).map(k => `<button type="button" data-accion="elegir-ilus" data-v="${k}" aria-pressed="${!e.emoji && !e.foto && e.ilus === k}" aria-label="${NOMBRE_ILUS[k]}" title="${NOMBRE_ILUS[k]}">${ILUS[k]}</button>`).join('');
+  let imagen;
+  if (e.tipo === 'ilus') {
+    imagen = `<div class="galeria" role="listbox" aria-label="Ilustraciones">${Object.keys(ILUS).map(k => `<button type="button" role="option" data-accion="elegir-ilus" data-v="${k}" aria-pressed="${!e.emoji && !e.foto && e.ilus === k}" aria-label="${NOMBRE_ILUS[k]}">${ILUS[k]}<span>${NOMBRE_ILUS[k]}</span></button>`).join('')}</div>`;
+  } else if (e.tipo === 'emoji') {
+    imagen = `<div class="emojis">${EMOJIS_SUGERIDOS.map(x => `<button type="button" data-accion="elegir-emoji" data-v="${x}" aria-pressed="${e.emoji === x}" aria-label="Emoji ${x}">${x}</button>`).join('')}</div>
+      <div class="campo"><label for="ed-emoji">O escribe otro emoji</label><input id="ed-emoji" class="emoji-input" maxlength="4" value="${esc(e.emoji)}" placeholder="🥑" autocomplete="off"></div>`;
+  } else {
+    imagen = `<div class="foto-zona">
+      <label class="btn borde archivo">${e.foto ? 'Cambiar la foto' : 'Elegir foto o GIF'}<input type="file" id="ed-foto" accept="image/*" hidden></label>
+      ${e.foto ? `<button type="button" class="btn chico borde peligro" data-accion="quitar-foto">Quitar la foto</button>` : ''}
+      <p class="ayuda">La foto se recorta en cuadro y se reduce para que cargue rápido. Un GIF chico se queda animado.</p></div>`;
+  }
   return `<h2>${e.id ? 'Editar producto' : 'Nuevo producto'}</h2>
     <form data-form="editar">
       <div class="vista-previa">${ilusDe(e)}<div><b id="prev-nombre" style="font-family:var(--display);font-size:1.1rem">${esc(e.nombre) || 'Nuevo producto'}</b><p class="ayuda">Así se verá en la caja.</p></div></div>
@@ -1069,12 +1088,10 @@ function editarHTML(){
         <div class="campo"><label for="ed-unidad">Se vende por</label><select id="ed-unidad"><option value="kg"${e.unidad === 'kg' ? ' selected' : ''}>Kilo (se pesa)</option><option value="pieza"${e.unidad === 'pieza' ? ' selected' : ''}>Pieza</option><option value="manojo"${e.unidad === 'manojo' ? ' selected' : ''}>Manojo</option></select></div>
         <div class="campo"><label for="ed-precio">Precio</label><input id="ed-precio" type="number" min="0" step="any" inputmode="decimal" required value="${esc(e.precio)}" placeholder="0"></div>
       </div>
-      <div class="campo"><label>Ilustración</label><div class="galeria">${galeria}</div></div>
-      <div class="campos-2">
-        <div class="campo"><label for="ed-emoji">O un emoji</label><input id="ed-emoji" maxlength="4" value="${esc(e.emoji)}" placeholder="🍓" autocomplete="off"></div>
-        <div class="campo"><label for="ed-foto">O una foto / GIF</label><input id="ed-foto" type="file" accept="image/*"></div>
+      <div class="campo"><label>Imagen</label>
+        <div class="segmento">${[['ilus', 'Ilustración'], ['emoji', 'Emoji'], ['foto', 'Foto']].map(([k, l]) => `<button type="button" data-accion="ed-tipo" data-v="${k}" aria-pressed="${e.tipo === k}">${l}</button>`).join('')}</div>
       </div>
-      ${e.foto ? `<div class="botonera"><button type="button" class="btn chico borde" data-accion="quitar-foto">Quitar la foto</button></div>` : ''}
+      ${imagen}
       <div class="botonera">${e.id ? `<button type="button" class="btn borde peligro" data-accion="eliminar" data-id="${e.id}">Eliminar</button>` : ''}<button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="submit" class="btn primario">Guardar</button></div>
     </form>`;
 }
@@ -1082,6 +1099,7 @@ function pintarVistaPrevia(){
   const v = $('.vista-previa .ilus'); if (v) v.outerHTML = ilusDe(edicion);
   const n = $('#prev-nombre'); if (n) n.textContent = edicion.nombre.trim() || 'Nuevo producto';
   $$('.galeria button').forEach(b => b.setAttribute('aria-pressed', String(!edicion.emoji && !edicion.foto && edicion.ilus === b.dataset.v)));
+  $$('.emojis button').forEach(b => b.setAttribute('aria-pressed', String(edicion.emoji === b.dataset.v)));
 }
 function leerFoto(file, cb){
   if (!file || !file.type.startsWith('image/')) { toast('Elige una imagen'); return; }
@@ -1243,8 +1261,10 @@ const acciones = {
   ajustar: d => abrirModal('ajustar', {pid: d.id}),
   editar: d => abrirEditar(d.id),
   nuevo: () => abrirEditar(null),
-  'elegir-ilus': d => { sincronizarEdicion(); edicion.ilus = d.v; edicion.emoji = ''; edicion.foto = ''; const em = $('#ed-emoji'); if (em) em.value = ''; pintarVistaPrevia(); },
-  'quitar-foto': () => { sincronizarEdicion(); edicion.foto = ''; pintarModal(); },
+  'elegir-ilus': d => { sincronizarEdicion(); edicion.ilus = d.v; edicion.emoji = ''; edicion.foto = ''; pintarVistaPrevia(); },
+  'elegir-emoji': d => { sincronizarEdicion(); edicion.emoji = d.v; edicion.foto = ''; const em = $('#ed-emoji'); if (em) em.value = d.v; pintarVistaPrevia(); },
+  'ed-tipo': d => { sincronizarEdicion(); edicion.tipo = d.v; pintarModal(); },
+  'quitar-foto': () => { sincronizarEdicion(); edicion.foto = ''; edicion.tipo = 'ilus'; pintarModal(); },
   eliminar: async (d, b) => {
     if (!b.dataset.confirmado) { b.dataset.confirmado = '1'; b.textContent = '¿Seguro? Sí, eliminar'; return; }
     const p = prod(d.id); if (!p) return;
@@ -1325,6 +1345,7 @@ const formularios = {
     sincronizarEdicion(); const e = edicion;
     const nombre = e.nombre.trim(); const precio = r2(num(e.precio));
     if (!nombre) { toast('Ponle nombre al producto'); return; }
+    if (e.tipo === 'ilus') { e.emoji = ''; e.foto = ''; } else if (e.tipo === 'emoji') { e.foto = ''; }
     const datos = {nombre, descripcion: (e.descripcion || '').trim(), unidad: e.unidad, precio, ilus: e.ilus, emoji: e.emoji, foto: e.foto};
     const ok = await ejecutar(e.id
       ? {metodo: 'PUT', ruta: `/productos/${e.id}`, cuerpo: datos, local: () => { Object.assign(prod(e.id), datos); }}
