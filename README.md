@@ -7,19 +7,28 @@ SQLite) para que varios teléfonos vean lo mismo.
 - **Demo en Railway (la que se le deja al cliente):** https://verduleria-pos-production.up.railway.app
 - Demo estática con datos inventados (sin servidor): https://carloscasef87-bit.github.io/verduleria-pos/
 
+## Dos perfiles por teléfono
+
+Al abrir por primera vez, el teléfono pregunta si es **Punto de venta** (solo la pantalla de
+vender, sin pestañas) o **Dirección** (dashboard, dirección, corte, ajustes, y también vender).
+Lo recuerda. Desde la caja se entra a Dirección con el PIN del dueño; desde Dirección, «Salir a
+caja». El PIN se pone en Ajustes y hay que ponerlo antes de dejar el sistema en el puesto.
+
 ## Qué hace
 
 - **Vender** (la caja): rejilla con los productos encendidos, cada uno con su ilustración
   animada, su precio y su **nivel 0–100**. Se toca el producto, se teclea el peso de la báscula
   (kg o gramos) o «por dinero» («deme $20 de limón») y se agrega al ticket. Cobrar calcula el
   cambio, descuenta la existencia y ofrece **enviar el ticket por WhatsApp** (al número del
-  cliente o eligiendo el contacto).
+  cliente o eligiendo el contacto). Si el producto tiene precio de mayoreo, entra solo al llegar
+  a la cantidad mínima y el cajero puede forzarlo o quitarlo.
 - **Dashboard**: vendido hoy contra ayer, tickets, kilos, ventas de 7 días en gráfica, lo que
   más se vende y la lista de productos por reponer.
 - **Dirección** (el dueño): catálogo de 51 frutas y verduras comunes, todo apagado al inicio.
   En una sola tabla enciende lo que vende, escribe el precio y el stock actual (lo que guarda
   queda declarado como nivel 100). Puede crear productos nuevos con nombre, descripción,
-  unidad (kilo, pieza o manojo), precio e ilustración, emoji o foto. Debajo, producto por
+  unidad (kilo, pieza o manojo), precio, **precio de mayoreo** con cantidad mínima, e
+  ilustración, emoji o foto. Debajo, producto por
   producto: declarar entradas, ajustar por conteo o merma, editar, últimos movimientos.
 - **Corte**: ventas del día por producto, tickets (cada uno con botón de WhatsApp) y entradas.
 - **Ajustes**: nombre del negocio, moneda, PIN de dirección, respaldo, datos de ejemplo,

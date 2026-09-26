@@ -66,9 +66,22 @@ nav.pestanas{display:flex;gap:4px;margin-left:auto}
 nav.pestanas button{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;color:var(--muted);font-weight:700;white-space:nowrap}
 nav.pestanas button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
 nav.pestanas svg{width:20px;height:20px;flex:none}
-#bloquear{margin-left:auto}
+nav.pestanas .solo-movil{display:none}
+@media (max-width:699px){nav.pestanas .solo-movil{display:flex}}
+#a-direccion{margin-left:auto}
+#salir{margin-left:8px}
+.app.caja{--nav-h:0px}
+.perfiles{max-width:520px;margin:16px auto;display:flex;flex-direction:column;gap:12px}
+.perfiles h2{font-family:var(--display);font-size:1.5rem;margin:0}
+.perfil{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 14px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:16px;text-align:left;box-shadow:var(--shadow);width:100%}
+.perfil b{font-family:var(--display);font-size:1.2rem}
+.perfil>span:last-child{color:var(--muted);font-size:.9rem;grid-column:2}
+.perfil-icono{grid-row:1/3;width:52px;height:52px;border-radius:14px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.perfil-icono svg{width:28px;height:28px}
+.perfil:active{transform:scale(.98)}
 main{flex:1;min-height:0;overflow:auto;padding:16px}
 @media (max-width:699px){
+  #salir{display:none}
   nav.pestanas{position:fixed;left:0;right:0;bottom:0;margin:0;background:var(--paper);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));justify-content:space-around;z-index:6}
   nav.pestanas button{flex-direction:column;gap:2px;font-size:.66rem;padding:6px 4px;border-radius:8px;flex:1;justify-content:center}
   main{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 16px)}
@@ -208,6 +221,7 @@ textarea{resize:vertical}
 .celda-input input{width:76px;border:0;background:none;font-family:var(--display);font-weight:700;font-size:1rem;text-align:right;padding:4px 0;min-height:34px;-moz-appearance:textfield}
 .celda-input input::-webkit-outer-spin-button,.celda-input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .celda-input small{color:var(--muted)}
+.celda-input.doble input{width:64px}
 .tabla-carga .nivel{min-width:96px}
 .ilus.chica{width:36px;border-radius:8px;flex:none}
 .ilus.chica .emoji{font-size:1.3rem}
@@ -349,10 +363,12 @@ button,a.btn{-webkit-tap-highlight-color:transparent}
   .tabla-carga tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
   .tabla-carga td{display:block;padding:0;border:0;text-align:left}
   .tabla-carga td:nth-child(1){grid-column:1;grid-row:1}
-  .tabla-carga td:nth-child(5){grid-column:2;grid-row:1;justify-self:end}
+  .tabla-carga td:nth-child(6){grid-column:2;grid-row:1;justify-self:end}
   .tabla-carga td:nth-child(2){grid-column:1;grid-row:2}
   .tabla-carga td:nth-child(3){grid-column:2;grid-row:2}
   .tabla-carga td:nth-child(4){grid-column:1/-1;grid-row:3}
+  .tabla-carga td:nth-child(5){grid-column:1/-1;grid-row:4}
+  .celda-input.doble input{width:auto;flex:1;min-width:0}
   .lbl-cel{display:block;font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
   .celda-input{width:100%;justify-content:space-between}
   .celda-input input{width:100%;text-align:left}
@@ -367,16 +383,18 @@ button,a.btn{-webkit-tap-highlight-color:transparent}
   <header class="barra">
     <div class="marca">
       <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c0-8 4-13 14-15-1 9-5 14-14 15z"/><path d="M5 20c3-5 7-8 10-10"/></svg></div>
-      <div><h1 id="nombre-negocio">Mi verdulería</h1><small>Verdulería al Peso</small></div>
+      <div><h1 id="nombre-negocio">Mi verdulería</h1><small id="perfil-txt">Verdulería al Peso</small></div>
     </div>
-    <button id="bloquear" class="btn chico borde" data-accion="bloquear" hidden>Bloquear</button>
+    <button id="a-direccion" class="btn chico borde" data-accion="a-direccion" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Dirección</button>
     <nav class="pestanas" id="nav" aria-label="Secciones">
       <button data-accion="ir" data-vista="vender" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2 11H5L3 9z"/><path d="M7 9l3-6m7 6l-3-6M9 13v4m6-4v4"/></svg>Vender</button>
       <button data-accion="ir" data-vista="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Dashboard</button>
       <button data-accion="ir" data-vista="direccion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M12 11l9-4M12 11L3 7m9 4v10"/></svg>Dirección</button>
       <button data-accion="ir" data-vista="corte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18l-2-1.5L15 21l-2-1.5L11 21l-2-1.5L7 21l-2-1.5V3z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Corte</button>
       <button data-accion="ir" data-vista="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10m4 0h2M4 12h2m4 0h10M4 17h10m4 0h2"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>Ajustes</button>
+      <button class="solo-movil" data-accion="salir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3M21 3v18"/></svg>Salir</button>
     </nav>
+    <button id="salir" class="btn chico borde" data-accion="salir" hidden>Salir a caja</button>
   </header>
   <div id="red" class="red" hidden></div>
   <main id="main"></main>
@@ -502,7 +520,8 @@ const CLAVE = 'verduleria.v1';           // datos en modo local (sin servidor)
 const CLAVE_CACHE = 'verduleria.cache';  // última copia del estado del servidor, para abrir sin señal
 const CLAVE_COLA = 'verduleria.cola';    // ventas hechas sin señal, pendientes de enviar
 const CLAVE_MODO = 'verduleria.modo';
-const CLAVE_TOKEN = 'verduleria.token';
+const CLAVE_TOKEN = 'verduleria.token';   // el teléfono de dirección se queda abierto hasta «Salir a caja»
+const CLAVE_PERFIL = 'verduleria.perfil'; // 'caja' o 'direccion': qué es este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
@@ -519,6 +538,7 @@ let filtro = '';
 let ticket = [];
 let ticketAbierto = false;
 let MODO = 'local';        // 'servidor' cuando hay API
+let perfil = null;         // 'caja' (solo vende) o 'direccion' (carga todo); null = todavía no eligió
 let token = '';            // token del PIN (modo servidor)
 let desbloqueado = false;  // modo local: PIN tecleado en esta sesión
 let enLinea = true;
@@ -548,6 +568,8 @@ function fechaTxt(iso){ const [a, m, d] = iso.split('-').map(Number); return new
 function prod(id){ return estado.productos.find(p => p.id === id); }
 function tienePin(){ return MODO === 'servidor' ? !!estado.negocio.tiene_pin : !!estado.negocio.pin; }
 function abierto(){ return MODO === 'servidor' ? !!token : desbloqueado; }
+const ICONO_CAJA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2 11H5L3 9z"/><path d="M7 9l3-6m7 6l-3-6M9 13v4m6-4v4"/></svg>';
+const ICONO_DIR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M12 11l9-4M12 11L3 7m9 4v10"/></svg>';
 
 function nivel(p){
   if (!(p.declarado > 0)) return 0;
@@ -558,12 +580,15 @@ function banda(p){
   const n = nivel(p);
   return n >= 50 ? 'ok' : n >= 20 ? 'warn' : 'bad';
 }
+function tieneMayoreo(p){ return p.precio_mayoreo > 0 && p.mayoreo_desde > 0; }
+function mayoreoTxt(p){ return `${dinero(p.precio_mayoreo)} desde ${cantidadTxt(p.mayoreo_desde, p.unidad)}`; }
 
 /* Almacenamiento del navegador: siempre puede fallar (privado, bloqueado), por eso va entre try. */
 function leerLS(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
 function escribirLS(k, v){ try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
-function leerSS(k){ try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
-function escribirSS(k, v){ try { if (v) sessionStorage.setItem(k, v); else sessionStorage.removeItem(k); } catch (e) {} }
+function leerSS(k){ return leerLS(k) || ''; }
+function escribirSS(k, v){ escribirLS(k, v || null); }
+function guardarPerfil(v){ perfil = v; escribirLS(CLAVE_PERFIL, v); }
 function cargarLocal(){
   try { const d = JSON.parse(leerLS(CLAVE) || 'null'); if (d && Array.isArray(d.productos) && d.negocio) return d; } catch (e) {}
   return null;
@@ -652,11 +677,32 @@ function unidadCorta(u){ return u === 'kg' ? 'kg' : u === 'manojo' ? 'manojo' : 
 function unidadLarga(u){ return u === 'kg' ? 'kilo' : u === 'manojo' ? 'manojo' : 'pieza'; }
 function unidadPlural(u){ return u === 'kg' ? 'kg' : u === 'manojo' ? 'manojos' : 'piezas'; }
 
+function vistaPerfil(){
+  return `<div class="perfiles">
+    <h2>¿Quién usa este teléfono?</h2>
+    <p class="ayuda">Se recuerda para la próxima vez. Desde la caja se entra a Dirección con el PIN; desde Dirección, «Salir a caja».</p>
+    <button class="perfil" data-accion="perfil-caja"><span class="perfil-icono">${ICONO_CAJA}</span><b>Punto de venta</b><span>Pesar, cobrar y mandar el ticket. No cambia precios ni stock.</span></button>
+    <button class="perfil" data-accion="a-direccion"><span class="perfil-icono">${ICONO_DIR}</span><b>Dirección</b><span>Productos, precios, stock, corte y dashboard.${tienePin() ? ' Pide el PIN.' : ' Sin PIN todavía: ponlo en Ajustes.'}</span></button>
+  </div>`;
+}
 function render(){
   $('#nombre-negocio').textContent = estado.negocio.nombre || 'Mi verdulería';
+  const app = $('#app');
+  if (!perfil) {
+    $('#perfil-txt').textContent = 'Verdulería al Peso';
+    $('#nav').hidden = true; $('#a-direccion').hidden = true; $('#salir').hidden = true;
+    app.classList.remove('en-vender'); app.classList.add('caja');
+    $('#main').innerHTML = vistaPerfil();
+    return;
+  }
+  if (perfil !== 'direccion') vista = 'vender';
+  $('#perfil-txt').textContent = perfil === 'direccion' ? 'Dirección' : 'Punto de venta';
+  $('#nav').hidden = perfil !== 'direccion';
+  $('#a-direccion').hidden = perfil !== 'caja';
+  $('#salir').hidden = perfil !== 'direccion';
+  app.classList.toggle('caja', perfil !== 'direccion');
   $$('#nav button').forEach(b => { if (b.dataset.vista === vista) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-  $('#bloquear').hidden = !(estado.negocio.pin && desbloqueado);
-  $('#app').classList.toggle('en-vender', vista === 'vender');
+  app.classList.toggle('en-vender', vista === 'vender');
   const vistas = {vender: vistaVender, dashboard: vistaDashboard, direccion: vistaDireccion, corte: vistaCorte, ajustes: vistaAjustes};
   $('#main').innerHTML = vistas[vista]();
   if (vista === 'vender') renderTicket();
@@ -665,13 +711,13 @@ function render(){
 
 /* ---- Vender ---- */
 function avisoEjemplo(){
-  return `<div class="aviso"><span><b>Datos de ejemplo.</b> Los precios y las existencias son inventados. Cámbialos en Dirección o empieza en limpio.</span><button class="btn chico borde" data-accion="empezar-limpio">Empezar en limpio</button></div>`;
+  return `<div class="aviso"><span><b>Datos de ejemplo.</b> Los precios y las existencias son inventados.${perfil === 'direccion' ? ' Cámbialos en Dirección o empieza en limpio.' : ''}</span>${perfil === 'direccion' ? '<button class="btn chico borde" data-accion="empezar-limpio">Empezar en limpio</button>' : ''}</div>`;
 }
 function rejillaHTML(){
   const q = filtro.trim().toLowerCase();
   const lista = estado.productos.filter(p => p.activo && (!q || p.nombre.toLowerCase().includes(q)));
   const cuenta = $('#cuenta'); if (cuenta) cuenta.textContent = lista.length + ' en venta';
-  if (!lista.length) return `<div class="vacio">${q ? 'Ningún producto se llama así.' : 'No hay productos encendidos.<br><br><button class="btn primario" data-accion="ir" data-vista="direccion">Ir a Dirección a encender productos</button>'}</div>`;
+  if (!lista.length) return `<div class="vacio">${q ? 'Ningún producto se llama así.' : (perfil === 'direccion' ? 'No hay productos encendidos.<br><br><button class="btn primario" data-accion="ir" data-vista="direccion">Ir a Dirección a encender productos</button>' : 'No hay productos encendidos. Se encienden desde el perfil de Dirección.')}</div>`;
   return `<div class="rejilla">` + lista.map(p => {
     const n = nivel(p), ag = p.existencia <= 0;
     return `<button class="tarjeta${ag ? ' agotado' : ''}" data-accion="pesar" data-id="${p.id}" data-banda="${banda(p)}" aria-label="${esc(p.nombre)}, ${dinero(p.precio)} por ${unidadLarga(p.unidad)}, nivel ${n}">
@@ -680,6 +726,7 @@ function rejillaHTML(){
       <span class="nombre">${esc(p.nombre)}</span>
       ${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}
       <span class="precio">${dinero(p.precio)}<small>/${unidadCorta(p.unidad)}</small></span>
+      ${tieneMayoreo(p) ? `<span class="desc">Mayoreo ${mayoreoTxt(p)}</span>` : ''}
       <span class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b></span>
     </button>`;
   }).join('') + `</div>`;
@@ -688,7 +735,7 @@ function vistaVender(){
   const enVenta = estado.productos.filter(p => p.activo).length;
   return `<div class="vender">
     <div class="catalogo">
-      ${estado.negocio.ejemplo ? avisoEjemplo() : (enVenta && !estado.ventas.length && estado.productos.every(p => p.existencia <= 0) ? `<div class="aviso"><span><b>Para empezar:</b> en Dirección carga el precio y el stock de hoy.</span><button class="btn chico borde" data-accion="ir" data-vista="direccion">Ir a Dirección</button></div>` : '')}
+      ${estado.negocio.ejemplo ? avisoEjemplo() : (enVenta && !estado.ventas.length && estado.productos.every(p => p.existencia <= 0) ? (perfil === 'direccion' ? `<div class="aviso"><span><b>Para empezar:</b> en Dirección carga el precio y el stock de hoy.</span><button class="btn chico borde" data-accion="ir" data-vista="direccion">Ir a Dirección</button></div>` : `<div class="aviso"><span>Todavía no hay precios ni stock cargados. Eso se hace desde el perfil de Dirección.</span></div>`) : '')}
       <div class="buscar"><input id="buscar" type="search" placeholder="Buscar producto…" value="${esc(filtro)}" aria-label="Buscar producto" autocomplete="off"><span class="cuenta" id="cuenta">${enVenta} en venta</span></div>
       <div id="rejilla-wrap">${rejillaHTML()}</div>
     </div>
@@ -701,7 +748,7 @@ function renderTicket(){
   const n = ticket.length;
   el.classList.toggle('abierto', ticketAbierto);
   el.innerHTML = `<header><span>Ticket</span><span class="muted">${n} ${n === 1 ? 'artículo' : 'artículos'}</span></header>
-    <div class="lineas">${n ? ticket.map((l, i) => `<div class="linea"><div><div>${esc(l.nombre)}</div><div class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}</div></div><div class="imp">${dinero(l.importe)}</div><button class="x" data-accion="quitar" data-i="${i}" aria-label="Quitar ${esc(l.nombre)}">✕</button></div>`).join('') : `<div class="vacio">Toca un producto para pesarlo.</div>`}</div>
+    <div class="lineas">${n ? ticket.map((l, i) => `<div class="linea"><div><div>${esc(l.nombre)}</div><div class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}${l.mayoreo ? ' · mayoreo' : ''}</div></div><div class="imp">${dinero(l.importe)}</div><button class="x" data-accion="quitar" data-i="${i}" aria-label="Quitar ${esc(l.nombre)}">✕</button></div>`).join('') : `<div class="vacio">Toca un producto para pesarlo.</div>`}</div>
     <footer>
       <div class="total"><button class="ver-lineas" data-accion="ticket-toggle">${n} art. ${ticketAbierto ? '▾' : '▴'}</button><span class="lbl">Total</span><b>${dinero(total)}</b></div>
       <button class="btn dinero grande" data-accion="cobrar" ${n ? '' : 'disabled'}>Cobrar</button>
@@ -722,6 +769,7 @@ function filaCargaHTML(p){
     <td><span class="prod-celda">${ilusDe(p, 'chica')}<span>${esc(p.nombre)}${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span></span></td>
     <td class="num"><small class="lbl-cel">Precio</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio}" data-c-precio="${p.id}" aria-label="Precio de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
     <td class="num"><small class="lbl-cel">Stock actual</small><span class="celda-input"><input type="number" min="0" step="any" inputmode="decimal" value="${trim3(Math.max(0, p.existencia))}" data-c-stock="${p.id}" aria-label="Stock actual de ${esc(p.nombre)}"><small>${unidadCorta(p.unidad)}</small></span></td>
+    <td class="num"><small class="lbl-cel">Mayoreo (opcional)</small><span class="celda-input doble">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio_mayoreo || ''}" data-c-may="${p.id}" placeholder="precio" aria-label="Precio de mayoreo de ${esc(p.nombre)}"><small>desde</small><input type="number" min="0" step="any" inputmode="decimal" value="${p.mayoreo_desde || ''}" data-c-desde="${p.id}" placeholder="0" aria-label="Cantidad mínima de mayoreo de ${esc(p.nombre)}"><small>${unidadCorta(p.unidad)}</small></span></td>
     <td><span class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b></span></td>
     <td><button type="button" class="switch" role="switch" aria-checked="${p.activo}" data-accion="toggle" data-id="${p.id}" aria-label="Encender o apagar ${esc(p.nombre)}"></button></td>
   </tr>`;
@@ -732,7 +780,7 @@ function tarjetasDireccionHTML(){
     return `<div class="fila" data-banda="${banda(p)}">
       ${ilusDe(p)}
       <div class="info">
-        <div class="titulo"><b>${esc(p.nombre)}</b><span class="precio-txt">${dinero(p.precio)}/${unidadCorta(p.unidad)}</span><span class="estado-txt">${p.activo ? 'En venta' : 'Apagado'}</span></div>
+        <div class="titulo"><b>${esc(p.nombre)}</b><span class="precio-txt">${dinero(p.precio)}/${unidadCorta(p.unidad)}${tieneMayoreo(p) ? ` · mayoreo ${mayoreoTxt(p)}` : ''}</span></div>
         <div class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b><span>de 100</span></div>
         <div class="datos"><span>Existencia <b>${cantidadTxt(p.existencia, p.unidad)}</b></span><span>Declarado <b>${cantidadTxt(p.declarado, p.unidad)}</b></span>${p.existencia <= 0 ? '<span style="color:var(--bad);font-weight:700">Agotado</span>' : ''}</div>
       </div>
@@ -751,9 +799,9 @@ function vistaDireccion(){
   const encendidos = estado.productos.filter(p => p.activo).length;
   const ordenados = estado.productos.filter(p => p.activo).concat(estado.productos.filter(p => !p.activo));
   const tabla = estado.productos.length ? `<form class="seccion" data-form="carga"><h3>Productos, precios y stock</h3>
-      <p class="ayuda">Enciende lo que vendes, escribe el precio y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100. Los apagados no aparecen en la caja.</p>
+      <p class="ayuda">Enciende lo que vendes, escribe el precio y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100. Mayoreo: precio especial a partir de una cantidad (la caja lo aplica sola). Los apagados no aparecen en la caja.</p>
       <div class="filtro-tabla"><input id="filtro-carga" type="search" placeholder="Buscar en el catálogo…" aria-label="Buscar producto" autocomplete="off"><span class="cuenta">${encendidos} encendido${encendidos === 1 ? '' : 's'} de ${estado.productos.length}</span></div>
-      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Stock actual</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div>
+      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Stock actual</th><th class="num">Mayoreo</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div>
       <div class="botonera"><button type="submit" class="btn primario">Guardar precios y stock</button></div></form>` : '';
   return `<div class="direccion">
     <div class="acciones"><h2>Dirección</h2><span class="ayuda">Nivel 100 = lo que declaraste · 0 = se acabó</span><span class="espacio"></span><button class="btn primario" data-accion="entrada">Declarar entrada</button><button class="btn borde" data-accion="nuevo">Nuevo producto</button></div>
@@ -848,7 +896,7 @@ function vistaCorte(){
       <div class="tile"><small>Ticket promedio</small><b>${ventas.length ? dinero(total / ventas.length) : '—'}</b></div>
     </div>
     <div class="seccion"><h3>Por producto</h3>${filasProd.length ? `<div class="tabla-wrap"><table><thead><tr><th>Producto</th><th class="num">Vendido</th><th class="num">Importe</th></tr></thead><tbody>${filasProd.map(f => `<tr><td>${esc(f.nombre)}</td><td class="num">${cantidadTxt(f.cantidad, f.unidad)}</td><td class="num">${dinero(f.importe)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="vacio">No hubo ventas este día.</div>`}</div>
-    <div class="seccion"><h3>Tickets</h3>${ventas.length ? ventas.map(v => `<details class="tk"><summary><span class="hora">${horaTxt(v.ts)}</span><span class="muted">${v.lineas.length} art.</span><span class="tot">${dinero(v.total)}</span></summary>${v.lineas.map(l => `<div class="linea"><div>${esc(l.nombre)} <span class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}</span></div><div class="imp">${dinero(l.importe)}</div><span></span></div>`).join('')}<div class="linea"><div class="q">Recibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}</div><span></span><span></span></div><div class="tk-acciones"><a class="btn chico wa" href="${enlaceWA(textoTicket(v))}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div></details>`).join('') : `<div class="vacio">Sin tickets.</div>`}</div>
+    <div class="seccion"><h3>Tickets</h3>${ventas.length ? ventas.map(v => `<details class="tk"><summary><span class="hora">${horaTxt(v.ts)}</span><span class="muted">${v.lineas.length} art.</span><span class="tot">${dinero(v.total)}</span></summary>${v.lineas.map(l => `<div class="linea"><div>${esc(l.nombre)} <span class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}${l.mayoreo ? ' · mayoreo' : ''}</span></div><div class="imp">${dinero(l.importe)}</div><span></span></div>`).join('')}<div class="linea"><div class="q">Recibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}</div><span></span><span></span></div><div class="tk-acciones"><a class="btn chico wa" href="${enlaceWA(textoTicket(v))}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div></details>`).join('') : `<div class="vacio">Sin tickets.</div>`}</div>
     <div class="seccion"><h3>Entradas y ajustes del día</h3>${movimientosHTML(movs)}</div>
   </div>`;
 }
@@ -862,7 +910,7 @@ function vistaAjustes(){
       <div class="campos-2"><div class="campo"><label for="aj-nombre">Nombre</label><input id="aj-nombre" value="${esc(n.nombre)}" maxlength="40"></div><div class="campo"><label for="aj-moneda">Moneda</label><input id="aj-moneda" value="${esc(n.moneda)}" maxlength="4"></div></div>
       <div class="campo"><label for="aj-pin">${hayPin ? 'Cambiar el PIN de dirección (4 dígitos, vacío = se queda igual)' : 'PIN de dirección (4 dígitos, vacío = sin PIN)'}</label><input id="aj-pin" inputmode="numeric" maxlength="4" value="" autocomplete="off" placeholder="${hayPin ? '••••' : ''}"></div>
       ${hayPin ? `<label class="casilla"><input type="checkbox" id="aj-quitar-pin"> Quitar el PIN</label>` : ''}
-      <p class="ayuda">Con PIN, Dashboard, Dirección, Corte y Ajustes piden la clave. Vender queda libre para quien atienda la caja.</p>
+      <p class="ayuda">${hayPin ? 'El PIN se pide al entrar al perfil de Dirección. El punto de venta no lo necesita.' : 'Sin PIN, cualquiera con un teléfono puede entrar a Dirección y cambiar precios. Ponlo antes de dejar el sistema en el puesto.'}</p>
       <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
     </form>
     <div class="seccion"><h3>Respaldo</h3>
@@ -916,16 +964,25 @@ function teclear(v, obj, o){
 }
 
 /* ---- Pesar ---- */
+function precioPesa(p, cantidad){
+  if (!tieneMayoreo(p)) return {precio: p.precio, mayoreo: false};
+  const usar = pesa.mayoreo === true || (pesa.mayoreo === null && cantidad >= p.mayoreo_desde);
+  return {precio: usar ? p.precio_mayoreo : p.precio, mayoreo: usar};
+}
 function calcPesa(p){
   const t = num(pesa.texto);
-  if (p.unidad !== 'kg') { const c = Math.floor(t); return {cantidad: c, importe: r2(c * p.precio)}; }
-  if (pesa.modo === 'dinero') { const importe = r2(t); return {cantidad: p.precio > 0 ? r3(importe / p.precio) : 0, importe}; }
-  const cantidad = pesa.gramos ? r3(t / 1000) : r3(t);
-  return {cantidad, importe: r2(cantidad * p.precio)};
+  if (pesa.modo === 'dinero' && p.unidad === 'kg') {
+    const importe = r2(t);
+    const pr = precioPesa(p, p.precio > 0 ? importe / p.precio : 0);
+    return {cantidad: pr.precio > 0 ? r3(importe / pr.precio) : 0, importe, precio: pr.precio, mayoreo: pr.mayoreo};
+  }
+  const cantidad = p.unidad !== 'kg' ? Math.floor(t) : (pesa.gramos ? r3(t / 1000) : r3(t));
+  const pr = precioPesa(p, cantidad);
+  return {cantidad, importe: r2(cantidad * pr.precio), precio: pr.precio, mayoreo: pr.mayoreo};
 }
 function pesarHTML(){
   const p = prod(pesa.pid);
-  const {cantidad, importe} = calcPesa(p);
+  const {cantidad, importe, precio, mayoreo} = calcPesa(p);
   const esKg = p.unidad === 'kg';
   const quedan = Math.max(0, p.existencia);
   const falta = cantidad > 0 && cantidad > p.existencia;
@@ -935,8 +992,10 @@ function pesarHTML(){
   else rapidos = [['0.25', '250 g'], ['0.5', '500 g'], ['1', '1 kg'], ['2', '2 kg']].map(([v, l]) => `<button type="button" data-accion="pesa-rapido" data-v="${v}">${l}</button>`).join('')
     + `<button type="button" data-accion="pesa-gramos" aria-pressed="${pesa.gramos}">Teclear en gramos</button>`;
   const grande = pesa.modo === 'dinero' ? dinero(num(pesa.texto)) : (pesa.texto || '0') + (esKg ? (pesa.gramos ? ' g' : ' kg') : ' ' + unidadCorta(p.unidad));
-  const chico = pesa.modo === 'dinero' ? `≈ ${cantidadTxt(cantidad, p.unidad)}` : `= ${dinero(importe)}`;
-  return `<div class="cab-modal">${ilusDe(p, 'mini')}<div><h2>${esc(p.nombre)}</h2><p class="sub">${dinero(p.precio)} por ${unidadLarga(p.unidad)} · quedan ${cantidadTxt(quedan, p.unidad)}</p></div></div>
+  const chico = (pesa.modo === 'dinero' ? `≈ ${cantidadTxt(cantidad, p.unidad)}` : `= ${dinero(importe)}`) + (mayoreo ? ' · mayoreo' : '');
+  const mayoreoHTML = tieneMayoreo(p) ? `<div class="segmento"><button type="button" data-accion="pesa-mayoreo" data-v="menudeo" aria-pressed="${!mayoreo}">Menudeo ${dinero(p.precio)}</button><button type="button" data-accion="pesa-mayoreo" data-v="mayoreo" aria-pressed="${mayoreo}">Mayoreo ${dinero(p.precio_mayoreo)}</button></div><p class="ayuda" style="margin-top:-8px">El mayoreo entra solo desde ${cantidadTxt(p.mayoreo_desde, p.unidad)}; aquí se puede forzar o quitar.</p>` : '';
+  return `<div class="cab-modal">${ilusDe(p, 'mini')}<div><h2>${esc(p.nombre)}</h2><p class="sub">${dinero(precio)} por ${unidadLarga(p.unidad)} · quedan ${cantidadTxt(quedan, p.unidad)}</p></div></div>
+    ${mayoreoHTML}
     ${esKg ? `<div class="segmento"><button type="button" data-accion="pesa-modo" data-v="peso" aria-pressed="${pesa.modo === 'peso'}">Por peso</button><button type="button" data-accion="pesa-modo" data-v="dinero" aria-pressed="${pesa.modo === 'dinero'}">Por dinero</button></div>` : ''}
     <div class="pantalla${falta ? ' alerta' : ''}"><div class="grande">${grande}</div><div class="chico">${falta ? 'Solo quedan ' + cantidadTxt(quedan, p.unidad) + ' · ' : ''}${chico}</div></div>
     <div class="rapidos">${rapidos}</div>
@@ -945,9 +1004,9 @@ function pesarHTML(){
 }
 function agregarLinea(){
   const p = prod(pesa.pid); if (!p) return;
-  const {cantidad, importe} = calcPesa(p);
+  const {cantidad, importe, precio, mayoreo} = calcPesa(p);
   if (!(cantidad > 0)) return;
-  ticket.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio: p.precio, importe});
+  ticket.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio, importe, mayoreo});
   cerrarModal(); renderTicket(); snapshot();
   toast(`${p.nombre} · ${cantidadTxt(cantidad, p.unidad)} · ${dinero(importe)}`);
 }
@@ -989,7 +1048,7 @@ function confirmarVenta(){
 /* ---- Venta registrada + WhatsApp ---- */
 function textoTicket(v){
   const n = estado.negocio.nombre || 'Verdulería';
-  const lineas = v.lineas.map(l => `• ${l.nombre}: ${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)} = ${dinero(l.importe)}`).join('\n');
+  const lineas = v.lineas.map(l => `• ${l.nombre}: ${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}${l.mayoreo ? ' (mayoreo)' : ''} = ${dinero(l.importe)}`).join('\n');
   return `🧾 *${n}*\n${fechaTxt(fechaLocal(v.ts))}, ${horaTxt(v.ts)}\n\n${lineas}\n\n*Total: ${dinero(v.total)}*\nRecibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}\n\n¡Gracias por su compra!`;
 }
 function enlaceWA(texto, tel){
@@ -1008,7 +1067,7 @@ function ventaHechaHTML(){
 
 /* ---- PIN ---- */
 function pinHTML(){
-  return `<h2>PIN de dirección</h2><p class="sub">Escribe la clave para entrar a ${esc(pin.destino)}.</p>
+  return `<h2>PIN de dirección</h2><p class="sub">Escribe la clave del dueño para entrar a Dirección.</p>
     <div class="pin-puntos${pin.mal ? ' mal' : ''}">${[0, 1, 2, 3].map(i => `<i class="${pin.texto.length > i ? 'lleno' : ''}"></i>`).join('')}</div>
     ${tecladoHTML()}
     <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button></div>`;
@@ -1023,6 +1082,7 @@ async function verificarPin(){
 }
 function pinCorrecto(){
   const p = pin; cerrarModal();
+  if (p.aDireccion) guardarPerfil('direccion');
   if (p.reintentar) ejecutar(p.reintentar).then(ok => { if (ok) { render(); toast('Guardado'); } });
   else ir(p.destino);
 }
@@ -1055,14 +1115,15 @@ function ajustarHTML(pid){
 /* ---- Editar / nuevo ---- */
 function abrirEditar(id){
   const p = id ? prod(id) : null;
-  edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
-              : {id: null, nombre: '', descripcion: '', unidad: 'kg', precio: '', ilus: 'canasta', emoji: '', foto: ''};
+  edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, precio_mayoreo: p.precio_mayoreo || '', mayoreo_desde: p.mayoreo_desde || '', ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
+              : {id: null, nombre: '', descripcion: '', unidad: 'kg', precio: '', precio_mayoreo: '', mayoreo_desde: '', ilus: 'canasta', emoji: '', foto: ''};
   edicion.tipo = edicion.foto ? 'foto' : edicion.emoji ? 'emoji' : 'ilus';
   abrirModal('editar');
 }
 function sincronizarEdicion(){
-  const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji');
+  const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji'), may = $('#ed-may'), desde = $('#ed-desde');
   if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
+  if (may) edicion.precio_mayoreo = may.value; if (desde) edicion.mayoreo_desde = desde.value;
 }
 const EMOJIS_SUGERIDOS = ['🍌','🍎','🍊','🍋','🍉','🍈','🍇','🍓','🍍','🥭','🍐','🍑','🍒','🥝','🥥','🫐','🍅','🧅','🥔','🥕','🌶️','🫑','🥬','🥒','🌽','🥦','🧄','🍠','🍄','🌿','🥜','🫛','🍆','🌵'];
 function editarHTML(){
@@ -1087,6 +1148,10 @@ function editarHTML(){
       <div class="campos-2">
         <div class="campo"><label for="ed-unidad">Se vende por</label><select id="ed-unidad"><option value="kg"${e.unidad === 'kg' ? ' selected' : ''}>Kilo (se pesa)</option><option value="pieza"${e.unidad === 'pieza' ? ' selected' : ''}>Pieza</option><option value="manojo"${e.unidad === 'manojo' ? ' selected' : ''}>Manojo</option></select></div>
         <div class="campo"><label for="ed-precio">Precio</label><input id="ed-precio" type="number" min="0" step="any" inputmode="decimal" required value="${esc(e.precio)}" placeholder="0"></div>
+      </div>
+      <div class="campos-2">
+        <div class="campo"><label for="ed-may">Precio de mayoreo (opcional)</label><input id="ed-may" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.precio_mayoreo)}" placeholder="0"></div>
+        <div class="campo"><label for="ed-desde">A partir de (${unidadPlural(e.unidad)})</label><input id="ed-desde" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.mayoreo_desde)}" placeholder="5"></div>
       </div>
       <div class="campo"><label>Imagen</label>
         <div class="segmento">${[['ilus', 'Ilustración'], ['emoji', 'Emoji'], ['foto', 'Foto']].map(([k, l]) => `<button type="button" data-accion="ed-tipo" data-v="${k}" aria-pressed="${e.tipo === k}">${l}</button>`).join('')}</div>
@@ -1194,15 +1259,20 @@ async function sincronizar(){
 }
 
 /* ================= Navegación ================= */
+function entrarDireccion(destino){
+  if (tienePin() && !abierto()) { pin = {texto: '', destino, mal: false, aDireccion: true}; abrirModal('pin'); return; }
+  guardarPerfil('direccion'); ir(destino);
+}
 function ir(v){
   if (!VISTAS.includes(v)) v = 'vender';
+  if (v !== 'vender' && perfil !== 'direccion') { entrarDireccion(v); return; }
   if (v !== 'vender' && tienePin() && !abierto()) { pin = {texto: '', destino: v, mal: false}; abrirModal('pin'); return; }
   vista = v;
   try { history.replaceState(null, '', '#' + v); } catch (e) {}
   render(); $('#main').scrollTop = 0; snapshot();
 }
 function snapshot(){
-  try { const h = window.claude && window.claude.hot; if (h && typeof h.snapshot === 'function') h.snapshot({ticket, vista}); } catch (e) {}
+  try { const h = window.claude && window.claude.hot; if (h && typeof h.snapshot === 'function') h.snapshot({ticket, vista, perfil}); } catch (e) {}
 }
 function migrar(){
   estado.negocio = Object.assign({nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: false}, estado.negocio);
@@ -1213,14 +1283,18 @@ function migrar(){
     p.id = p.id || uid(); p.unidad = p.unidad === 'pieza' || p.unidad === 'manojo' ? p.unidad : 'kg'; p.activo = p.activo !== false; p.descripcion = p.descripcion || '';
     p.precio = num(p.precio); p.existencia = num(p.existencia); p.declarado = num(p.declarado);
     p.ilus = ILUS[p.ilus] ? p.ilus : 'canasta'; p.emoji = p.emoji || ''; p.foto = p.foto || '';
+    p.precio_mayoreo = num(p.precio_mayoreo); p.mayoreo_desde = num(p.mayoreo_desde);
   });
 }
 
 /* ================= Acciones ================= */
 const acciones = {
   ir: d => ir(d.vista),
-  bloquear: () => { token = ''; escribirSS(CLAVE_TOKEN, ''); desbloqueado = false; ir('vender'); toast('Dirección bloqueada'); },
-  pesar: d => { const p = prod(d.id); if (!p) return; pesa = {pid: d.id, modo: 'peso', texto: '', gramos: false}; abrirModal('pesar'); },
+  'perfil-caja': () => { guardarPerfil('caja'); vista = 'vender'; render(); snapshot(); },
+  'a-direccion': () => entrarDireccion('dashboard'),
+  salir: () => { token = ''; escribirSS(CLAVE_TOKEN, ''); desbloqueado = false; guardarPerfil('caja'); vista = 'vender'; render(); snapshot(); toast('Este teléfono queda como punto de venta'); },
+  pesar: d => { const p = prod(d.id); if (!p) return; pesa = {pid: d.id, modo: 'peso', texto: '', gramos: false, mayoreo: null}; abrirModal('pesar'); },
+  'pesa-mayoreo': d => { pesa.mayoreo = d.v === 'mayoreo'; pintarModal(); },
   'pesa-modo': d => { pesa.modo = d.v; pesa.texto = ''; pintarModal(); },
   'pesa-gramos': () => { pesa.gramos = !pesa.gramos; pesa.texto = ''; pintarModal(); },
   'pesa-rapido': d => {
@@ -1324,12 +1398,18 @@ const formularios = {
     if (ok) { cerrarModal(); render(); toast(`${p.nombre} ajustado a ${cantidadTxt(nueva, p.unidad)}`); }
   },
   carga: async () => {
-    const items = estado.productos.map(p => { const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`); return {id: p.id, precio: ip ? ip.value : '', existencia: is ? is.value : ''}; });
+    const items = estado.productos.map(p => {
+      const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`), im = $(`[data-c-may="${p.id}"]`), idd = $(`[data-c-desde="${p.id}"]`);
+      const it = {id: p.id, precio: ip ? ip.value : '', existencia: is ? is.value : ''};
+      if (im && idd) { it.precio_mayoreo = r2(Math.max(0, num(im.value))); it.mayoreo_desde = r3(Math.max(0, num(idd.value))); }
+      return it;
+    });
     const ok = await ejecutar({ruta: '/carga', cuerpo: {items}, local: () => {
       const ts = Date.now();
       items.forEach(it => {
         const p = prod(it.id); if (!p) return;
         if (it.precio !== '') { const v = r2(Math.max(0, num(it.precio))); if (v !== p.precio) p.precio = v; }
+        if (it.precio_mayoreo !== undefined) { p.precio_mayoreo = it.precio_mayoreo; p.mayoreo_desde = it.mayoreo_desde; }
         if (it.existencia !== '') {
           const v = r3(Math.max(0, num(it.existencia)));
           if (v !== r3(Math.max(0, p.existencia))) {
@@ -1346,7 +1426,7 @@ const formularios = {
     const nombre = e.nombre.trim(); const precio = r2(num(e.precio));
     if (!nombre) { toast('Ponle nombre al producto'); return; }
     if (e.tipo === 'ilus') { e.emoji = ''; e.foto = ''; } else if (e.tipo === 'emoji') { e.foto = ''; }
-    const datos = {nombre, descripcion: (e.descripcion || '').trim(), unidad: e.unidad, precio, ilus: e.ilus, emoji: e.emoji, foto: e.foto};
+    const datos = {nombre, descripcion: (e.descripcion || '').trim(), unidad: e.unidad, precio, precio_mayoreo: r2(Math.max(0, num(e.precio_mayoreo))), mayoreo_desde: r3(Math.max(0, num(e.mayoreo_desde))), ilus: e.ilus, emoji: e.emoji, foto: e.foto};
     const ok = await ejecutar(e.id
       ? {metodo: 'PUT', ruta: `/productos/${e.id}`, cuerpo: datos, local: () => { Object.assign(prod(e.id), datos); }}
       : {ruta: '/productos', cuerpo: datos, local: () => { estado.productos.push(Object.assign({id: uid(), activo: true, declarado: 0, existencia: 0}, datos)); }});
@@ -1384,6 +1464,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'corte-dia') { corteDia = t.value || null; render(); }
+  else if (t.id === 'ed-unidad') { const l = $('label[for="ed-desde"]'); if (l) l.textContent = 'A partir de (' + unidadPlural(t.value) + ')'; }
   else if (t.id === 'ent-prod') { const p = prod(t.value); const u = $('#ent-unidad'); if (p && u) u.textContent = p.unidad === 'kg' ? 'kg' : 'piezas'; }
   else if (t.id === 'ed-foto') { const f = t.files && t.files[0]; if (!f) return; sincronizarEdicion(); leerFoto(f, url => { edicion.foto = url; edicion.emoji = ''; pintarModal(); }); }
   else if (t.id === 'aj-archivo') { const f = t.files && t.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const ta = $('#aj-respaldo'); if (ta) ta.value = r.result; restaurar(r.result); }; r.readAsText(f); t.value = ''; }
@@ -1429,10 +1510,13 @@ async function start(hot){
     MODO = 'local'; escribirLS(CLAVE_MODO, null);
     estado = cargarLocal() || semilla(); migrar();
   }
+  const guardado = leerLS(CLAVE_PERFIL);
+  perfil = guardado === 'caja' || guardado === 'direccion' ? guardado : null;
+  if (perfil === 'direccion' && tienePin() && !abierto()) perfil = null;   // el PIN cambió o se borró la sesión: que vuelva a elegir
   const h = (location.hash || '').slice(1);
   if (VISTAS.includes(h)) vista = h;
-  if (hot && typeof hot === 'object') { if (Array.isArray(hot.ticket)) ticket = hot.ticket; if (VISTAS.includes(hot.vista)) vista = hot.vista; }
-  if (vista !== 'vender' && tienePin() && !abierto()) vista = 'vender';
+  if (hot && typeof hot === 'object') { if (Array.isArray(hot.ticket)) ticket = hot.ticket; if (VISTAS.includes(hot.vista)) vista = hot.vista; if (hot.perfil === 'caja' || hot.perfil === 'direccion') perfil = hot.perfil; }
+  if (perfil !== 'direccion') vista = 'vender';
   render(); pintarRed();
   if (MODO === 'servidor') {
     setInterval(sincronizar, 20000); setInterval(enviarCola, 10000);

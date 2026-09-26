@@ -129,7 +129,8 @@ def _cerrar(_exc):
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS negocio(id INTEGER PRIMARY KEY CHECK(id = 1), nombre TEXT, moneda TEXT, pin TEXT, ejemplo INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS productos(id TEXT PRIMARY KEY, nombre TEXT, ilus TEXT, emoji TEXT, foto TEXT, unidad TEXT,
-    precio REAL, activo INTEGER, declarado REAL, existencia REAL, orden INTEGER, descripcion TEXT DEFAULT '');
+    precio REAL, activo INTEGER, declarado REAL, existencia REAL, orden INTEGER, descripcion TEXT DEFAULT '',
+    precio_mayoreo REAL DEFAULT 0, mayoreo_desde REAL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS movimientos(id TEXT PRIMARY KEY, ts INTEGER, tipo TEXT, pid TEXT, nombre TEXT, cantidad REAL, unidad TEXT, nota TEXT);
 CREATE TABLE IF NOT EXISTS ventas(id TEXT PRIMARY KEY, ts INTEGER, lineas TEXT, total REAL, recibido REAL, cambio REAL);
 CREATE INDEX IF NOT EXISTS ix_mov_ts ON movimientos(ts);
@@ -145,9 +146,9 @@ def sembrar_catalogo(con, activos=None, stock=None):
     for i, (nombre, img, unidad, precio) in enumerate(CATALOGO):
         pid = uid()
         declarado, existencia = stock.get(nombre, (0, 0))
-        con.execute('INSERT INTO productos VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        con.execute('INSERT INTO productos(id, nombre, ilus, emoji, foto, unidad, precio, activo, declarado, existencia, orden, descripcion, precio_mayoreo, mayoreo_desde) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     (pid, nombre, img if img in ILUS else 'canasta', '' if img in ILUS else img, '', unidad, precio,
-                     1 if nombre in activos else 0, declarado, existencia, i, ''))
+                     1 if nombre in activos else 0, declarado, existencia, i, '', 0, 0))
         creados.append({'id': pid, 'nombre': nombre, 'unidad': unidad, 'precio': precio, 'declarado': declarado})
     return creados
 
@@ -158,6 +159,9 @@ def iniciar():
     columnas = {r[1] for r in con.execute('PRAGMA table_info(productos)')}
     if 'descripcion' not in columnas:
         con.execute("ALTER TABLE productos ADD COLUMN descripcion TEXT DEFAULT ''")
+    if 'precio_mayoreo' not in columnas:
+        con.execute('ALTER TABLE productos ADD COLUMN precio_mayoreo REAL DEFAULT 0')
+        con.execute('ALTER TABLE productos ADD COLUMN mayoreo_desde REAL DEFAULT 0')
     if con.execute('SELECT COUNT(*) FROM negocio').fetchone()[0] == 0:
         con.execute("INSERT INTO negocio(id, nombre, moneda, pin, ejemplo) VALUES (1, 'Mi verdulería', '$', '', 0)")
         sembrar_catalogo(con)
@@ -172,7 +176,8 @@ iniciar()
 def fila_producto(r):
     return {'id': r['id'], 'nombre': r['nombre'], 'descripcion': r['descripcion'] or '', 'ilus': r['ilus'], 'emoji': r['emoji'] or '',
             'foto': r['foto'] or '', 'unidad': r['unidad'], 'precio': r['precio'], 'activo': bool(r['activo']),
-            'declarado': r['declarado'], 'existencia': r['existencia']}
+            'declarado': r['declarado'], 'existencia': r['existencia'],
+            'precio_mayoreo': r['precio_mayoreo'] or 0, 'mayoreo_desde': r['mayoreo_desde'] or 0}
 
 
 def estado():
@@ -286,7 +291,7 @@ def api_venta():
         p = producto(con, texto(l.get('pid'), 40))
         lineas.append({'pid': p['id'] if p else '', 'nombre': p['nombre'] if p else (texto(l.get('nombre'), 40) or 'Producto'),
                        'cantidad': cantidad, 'unidad': p['unidad'] if p else unidad_valida(l.get('unidad')),
-                       'precio': precio, 'importe': r2(cantidad * precio)})
+                       'precio': precio, 'importe': r2(cantidad * precio), 'mayoreo': bool(l.get('mayoreo'))})
     if not lineas:
         return error('El ticket está vacío')
     total = r2(sum(l['importe'] for l in lineas))
@@ -363,6 +368,12 @@ def api_carga():
             if precio != p['precio']:
                 con.execute('UPDATE productos SET precio = ? WHERE id = ?', (precio, p['id']))
                 cambios += 1
+        if it.get('precio_mayoreo') is not None or it.get('mayoreo_desde') is not None:
+            pm = r2(max(0.0, num(it.get('precio_mayoreo'))))
+            md = r3(max(0.0, num(it.get('mayoreo_desde'))))
+            if pm != (p['precio_mayoreo'] or 0) or md != (p['mayoreo_desde'] or 0):
+                con.execute('UPDATE productos SET precio_mayoreo = ?, mayoreo_desde = ? WHERE id = ?', (pm, md, p['id']))
+                cambios += 1
         if it.get('existencia') not in (None, ''):
             v = r3(max(0.0, num(it.get('existencia'))))
             if v != r3(max(0.0, p['existencia'])):
@@ -385,7 +396,8 @@ def datos_producto(d):
         return None, 'La foto es demasiado grande'
     return {'nombre': nombre, 'descripcion': texto(d.get('descripcion'), 60), 'unidad': unidad_valida(d.get('unidad')),
             'precio': r2(max(0.0, num(d.get('precio')))), 'ilus': d.get('ilus') if d.get('ilus') in ILUS else 'canasta',
-            'emoji': texto(d.get('emoji'), 8), 'foto': foto}, None
+            'emoji': texto(d.get('emoji'), 8), 'foto': foto,
+            'precio_mayoreo': r2(max(0.0, num(d.get('precio_mayoreo')))), 'mayoreo_desde': r3(max(0.0, num(d.get('mayoreo_desde'))))}, None
 
 
 @app.post('/api/productos')
@@ -396,8 +408,9 @@ def api_producto_nuevo():
         return error(err)
     con = db()
     orden = con.execute('SELECT COALESCE(MAX(orden), -1) + 1 FROM productos').fetchone()[0]
-    con.execute('INSERT INTO productos VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                (uid(), datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'], 1, 0, 0, orden, datos['descripcion']))
+    con.execute('INSERT INTO productos(id, nombre, ilus, emoji, foto, unidad, precio, activo, declarado, existencia, orden, descripcion, precio_mayoreo, mayoreo_desde) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                (uid(), datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'], 1, 0, 0, orden,
+                 datos['descripcion'], datos['precio_mayoreo'], datos['mayoreo_desde']))
     con.commit()
     return responder()
 
@@ -411,8 +424,9 @@ def api_producto_editar(pid):
     datos, err = datos_producto(cuerpo())
     if err:
         return error(err)
-    con.execute('UPDATE productos SET nombre = ?, ilus = ?, emoji = ?, foto = ?, unidad = ?, precio = ?, descripcion = ? WHERE id = ?',
-                (datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'], datos['descripcion'], pid))
+    con.execute('UPDATE productos SET nombre = ?, ilus = ?, emoji = ?, foto = ?, unidad = ?, precio = ?, descripcion = ?, precio_mayoreo = ?, mayoreo_desde = ? WHERE id = ?',
+                (datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'], datos['descripcion'],
+                 datos['precio_mayoreo'], datos['mayoreo_desde'], pid))
     con.commit()
     return responder()
 
@@ -554,9 +568,10 @@ def api_restaurar():
         if pid in ids:
             pid = uid()
         ids.add(pid)
-        con.execute('INSERT INTO productos VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        con.execute('INSERT INTO productos(id, nombre, ilus, emoji, foto, unidad, precio, activo, declarado, existencia, orden, descripcion, precio_mayoreo, mayoreo_desde) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     (pid, datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'],
-                     0 if p.get('activo') is False else 1, r3(max(0.0, num(p.get('declarado')))), r3(num(p.get('existencia'))), i, datos['descripcion']))
+                     0 if p.get('activo') is False else 1, r3(max(0.0, num(p.get('declarado')))), r3(num(p.get('existencia'))), i,
+                     datos['descripcion'], datos['precio_mayoreo'], datos['mayoreo_desde']))
     for m in (d.get('movimientos') or [])[:20000]:
         if not isinstance(m, dict):
             continue
