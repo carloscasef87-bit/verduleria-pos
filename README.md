@@ -20,6 +20,11 @@ ventas y una **clave de caja** de 6 letras.
   «Esta sucursal / Todas» para comparar puestos. En Ajustes crea sucursales (copiando el
   catálogo y los precios de otra si quiere), ve la clave de caja de cada una y cambia su cuenta.
 - Crear cuenta es libre. Para cerrarlo a invitados, se define la variable `CODIGO_ALTA` en Railway.
+- **Con Google**: si existe la variable `GOOGLE_CLIENT_ID` (ID de cliente OAuth de tipo
+  «aplicación web», con el dominio de Railway como origen autorizado), aparece «Continuar con
+  Google» y la cuenta se crea con el Gmail verificado, sin contraseña. Esa cuenta puede ponerse
+  una contraseña después en Ajustes → Mi cuenta. El servidor valida el token con
+  `oauth2.googleapis.com/tokeninfo`.
 
 ## Qué hace
 

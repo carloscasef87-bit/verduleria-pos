@@ -79,6 +79,9 @@ nav.pestanas .solo-movil{display:none}
 .entrada-form{grid-column:2;display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .entrada-form input{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--ground);min-height:44px;width:100%}
 .hoja .entrada-form{grid-column:auto;margin-top:0}
+.google-btn{min-height:44px;display:flex;justify-content:center}
+.o-sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+.o-sep::before,.o-sep::after{content:"";flex:1;height:1px;background:var(--line)}
 .sel-suc{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);font-weight:700;max-width:200px;min-height:40px}
 @media (max-width:699px){.app.con-sel .marca>div{display:none}}
 .clave-caja{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -543,7 +546,7 @@ const CLAVE_SESION = 'verduleria.sesion'; // servidor: sesión del dueño
 const CLAVE_SUC = 'verduleria.sucursal';  // servidor: sucursal abierta en dirección
 const CLAVE_CAJA = 'verduleria.caja';     // servidor: clave de caja de este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
-const VERSION = '2026-09-25.6';           // si el servidor trae otra, la página se recarga sola
+const VERSION = '2026-09-26.1';           // si el servidor trae otra, la página se recarga sola
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -565,7 +568,7 @@ let enLinea = true;
 let cola = [];             // ventas pendientes de enviar: {ruta, venta}
 let sincronizando = false;
 let sesion = '', cuenta = null, sucursales = [], sucursalId = '', claveCaja = '';
-let altaAbierta = true, entradaModo = 'entrar';
+let altaAbierta = true, entradaModo = 'entrar', googleClientId = '', googleListo = false;
 let dashTodas = false, resumen = null;
 let modalActual = null, modalOpts = null;
 let pesa = null, cobro = null, pin = null, edicion = null, ultimaVenta = null;
@@ -723,6 +726,32 @@ function camposCuentaHTML(reg){
     <input id="in-contrasena" type="password" placeholder="Contraseña" required minlength="6" autocomplete="${reg ? 'new-password' : 'current-password'}">
     ${reg && !altaAbierta ? `<input id="in-codigo" placeholder="Código de invitación" required autocomplete="off">` : ''}`;
 }
+function googleHTML(){
+  if (MODO !== 'servidor' || !googleClientId) return '';
+  return `<div class="google-btn" aria-label="Continuar con Google"></div><div class="o-sep"><span>o con tu correo</span></div>`;
+}
+function cargarGoogle(){
+  if (!googleClientId || document.getElementById('gsi-script')) return;
+  const sc = document.createElement('script'); sc.id = 'gsi-script'; sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.defer = true;
+  sc.onload = () => {
+    try { google.accounts.id.initialize({client_id: googleClientId, callback: credencialGoogle, ux_mode: 'popup', itp_support: true}); googleListo = true; pintarGoogle(); } catch (e) {}
+  };
+  document.head.appendChild(sc);
+}
+function pintarGoogle(){
+  if (!googleListo) return;
+  $$('.google-btn').forEach(el => { if (el.childElementCount) return; try { google.accounts.id.renderButton(el, {theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', locale: 'es', width: 280}); } catch (e) {} });
+}
+async function credencialGoogle(resp){
+  const r = await llamar('POST', '/sesion/google', {credential: resp && resp.credential});
+  if (r.status === 0) { marcarRed(false); toast('Sin señal'); return; }
+  if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo entrar con Google'); return; }
+  iniciarSesionCon(r.datos); cerrarModal(); guardarPerfil('direccion'); entradaModo = 'entrar';
+  if (await cargarEstadoSucursal()) {
+    if (r.datos.nueva) { ir('ajustes'); toast('Cuenta creada con tu Gmail. Ponle nombre a tu verdulería.'); }
+    else { ir('dashboard'); toast(`Hola, ${cuenta.nombre}`); }
+  }
+}
 function vistaEntrada(){
   const reg = entradaModo === 'registro';
   return `<div class="perfiles">
@@ -731,7 +760,7 @@ function vistaEntrada(){
     <form class="perfil" data-form="entrar-caja"><span class="perfil-icono">${ICONO_CAJA}</span><b>Punto de venta</b><span>Pesar, cobrar y mandar el ticket. No cambia precios ni stock.</span>
       <div class="entrada-form"><input id="in-clave" placeholder="Clave de caja (6 letras)" maxlength="8" required autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn primario" type="submit">Entrar a la caja</button></div></form>
     <form class="perfil" data-form="${reg ? 'crear-cuenta' : 'entrar-cuenta'}"><span class="perfil-icono">${ICONO_DIR}</span><b>Dirección</b><span>${reg ? 'Crea la cuenta del dueño y su primera sucursal.' : 'Productos, precios, stock, corte y dashboard de todas las sucursales.'}</span>
-      <div class="entrada-form">${camposCuentaHTML(reg)}
+      <div class="entrada-form">${googleHTML()}${camposCuentaHTML(reg)}
         <button class="btn primario" type="submit">${reg ? 'Crear cuenta' : 'Entrar'}</button>
         <button class="btn borde" type="button" data-accion="entrada-modo" data-v="${reg ? 'entrar' : 'registro'}">${reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva'}</button>
       </div></form>
@@ -747,6 +776,7 @@ function render(){
     $('#nav').hidden = true; $('#a-direccion').hidden = true; $('#salir').hidden = true; sel.hidden = true;
     app.classList.remove('en-vender', 'con-sel'); app.classList.add('caja');
     $('#main').innerHTML = MODO === 'servidor' ? vistaEntrada() : vistaPerfil();
+    pintarGoogle();
     return;
   }
   if (perfil !== 'direccion') vista = 'vender';
@@ -1058,7 +1088,8 @@ function vistaAjustes(){
     </div>
     <form class="seccion" data-form="cuenta"><h3>Mi cuenta</h3>
       <div class="campos-2"><div class="campo"><label for="cu-nombre">Nombre</label><input id="cu-nombre" value="${esc(cuenta ? cuenta.nombre : '')}" maxlength="40"></div><div class="campo"><label for="cu-correo">Correo</label><input id="cu-correo" type="email" value="${esc(cuenta ? cuenta.correo : '')}" maxlength="80" autocomplete="username"></div></div>
-      <div class="campos-2"><div class="campo"><label for="cu-actual">Contraseña actual</label><input id="cu-actual" type="password" autocomplete="current-password"></div><div class="campo"><label for="cu-nueva">Contraseña nueva</label><input id="cu-nueva" type="password" minlength="6" autocomplete="new-password"></div></div>
+      ${cuenta && cuenta.con_google ? `<p class="ayuda">Esta cuenta entra con Google (${esc(cuenta.correo)}).${cuenta.con_contrasena ? '' : ' Si quieres, ponle también una contraseña para entrar sin Google.'}</p>` : ''}
+      <div class="campos-2">${cuenta && cuenta.con_google && !cuenta.con_contrasena ? '' : `<div class="campo"><label for="cu-actual">Contraseña actual</label><input id="cu-actual" type="password" autocomplete="current-password"></div>`}<div class="campo"><label for="cu-nueva">Contraseña nueva</label><input id="cu-nueva" type="password" minlength="6" autocomplete="new-password"></div></div>
       <p class="ayuda">Deja las contraseñas vacías si solo cambias nombre o correo.</p>
       <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
     </form>
@@ -1083,6 +1114,7 @@ function pintarModal(){
     confirmar: () => confirmHTML(modalOpts)
   };
   $('#hoja').innerHTML = h[modalActual]();
+  if (modalActual === 'login') pintarGoogle();
 }
 function cerrarModal(){ $('#modal').hidden = true; $('#hoja').innerHTML = ''; modalActual = null; modalOpts = null; }
 
@@ -1220,7 +1252,7 @@ function verificarPin(){
 function loginHTML(){
   const reg = entradaModo === 'registro';
   return `<h2>${reg ? 'Crear cuenta de dueño' : 'Entrar a Dirección'}</h2><p class="sub">${reg ? 'La cuenta puede tener varias sucursales.' : 'Con el correo y la contraseña del dueño.'}</p>
-    <form data-form="${reg ? 'crear-cuenta' : 'entrar-cuenta'}"><div class="entrada-form">${camposCuentaHTML(reg)}</div>
+    <form data-form="${reg ? 'crear-cuenta' : 'entrar-cuenta'}"><div class="entrada-form">${googleHTML()}${camposCuentaHTML(reg)}</div>
       <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="submit" class="btn primario">${reg ? 'Crear cuenta' : 'Entrar'}</button></div>
       <div class="botonera"><button type="button" class="btn chico borde" data-accion="entrada-modo" data-v="${reg ? 'entrar' : 'registro'}">${reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva'}</button>${perfil === 'caja' ? `<button type="button" class="btn chico borde" data-accion="cambiar-caja">Cambiar de caja</button>` : ''}</div></form>`;
 }
@@ -1649,7 +1681,7 @@ const formularios = {
     if (ok) { render(); toast('Sucursal guardada'); }
   },
   cuenta: async () => {
-    const datos = await ejecutar({metodo: 'PUT', ruta: '/mi', absoluta: true, cuerpo: {nombre: $('#cu-nombre').value.trim(), correo: $('#cu-correo').value.trim(), contrasena_actual: $('#cu-actual').value, contrasena_nueva: $('#cu-nueva').value}});
+    const datos = await ejecutar({metodo: 'PUT', ruta: '/mi', absoluta: true, cuerpo: {nombre: $('#cu-nombre').value.trim(), correo: $('#cu-correo').value.trim(), contrasena_actual: $('#cu-actual') ? $('#cu-actual').value : '', contrasena_nueva: $('#cu-nueva').value}});
     if (datos) { cuenta = datos.cuenta || cuenta; render(); toast('Cuenta actualizada'); }
   },
   entrada: async () => {
@@ -1783,6 +1815,7 @@ async function start(hot){
   const r = await llamar('GET', '/estado');
   if (r.ok && r.datos && r.datos.servidor) {
     MODO = 'servidor'; escribirLS(CLAVE_MODO, 'servidor'); altaAbierta = r.datos.alta_abierta !== false; recargarSiNueva(r.datos.version);
+    googleClientId = r.datos.google_client_id || ''; cargarGoogle();
     if (perfil === 'direccion') { if (!sesion || !(await cargarCuenta()) || !(await cargarEstadoSucursal())) perfil = null; }
     else if (perfil === 'caja') { if (!claveCaja || !(await cargarEstadoCaja())) perfil = null; }
     if (!perfil) { escribirLS(CLAVE_PERFIL, null); estado = estadoVacio(); }

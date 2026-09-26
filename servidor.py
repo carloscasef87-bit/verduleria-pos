@@ -8,6 +8,7 @@ Variables de entorno:
   DATOS_DIR               carpeta de la base de datos (Railway: /data, el volumen). Por defecto ./datos
   DIAS_HISTORIAL          días de ventas y movimientos que se mandan al navegador (60)
   CODIGO_ALTA             si se define, crear una cuenta exige este código de invitación
+  GOOGLE_CLIENT_ID        ID de cliente OAuth de Google; con él aparece «Continuar con Google» y las cuentas se crean con Gmail
   MIGRACION_CORREO        correo de la cuenta que recibe los datos de una base vieja de un solo negocio
   MIGRACION_CONTRASENA    su contraseña (si falta, se genera una y se imprime en el log una sola vez)
 """
@@ -18,6 +19,8 @@ import random
 import secrets
 import sqlite3
 import time
+import urllib.parse
+import urllib.request
 from functools import wraps
 
 from flask import Flask, Response, g, jsonify, request, send_from_directory
@@ -28,9 +31,10 @@ os.makedirs(DATOS_DIR, exist_ok=True)
 DB = os.path.join(DATOS_DIR, 'verduleria.db')
 DIAS_HISTORIAL = int(os.environ.get('DIAS_HISTORIAL', '60'))
 CODIGO_ALTA = (os.environ.get('CODIGO_ALTA') or '').strip()
+GOOGLE_CLIENT_ID = (os.environ.get('GOOGLE_CLIENT_ID') or '').strip()
 DIA_MS = 86400000
 SESION_DIAS = 180
-VERSION = '2026-09-25.6'   # el navegador la compara con la suya y se recarga si cambió
+VERSION = '2026-09-26.1'   # el navegador la compara con la suya y se recarga si cambió
 
 # Catálogo inicial: (nombre, imagen = clave de ilustración o emoji, unidad, precio de referencia).
 # Es el mismo que el del index.html. Arranca todo apagado: el dueño enciende en Dirección lo que vende.
@@ -123,7 +127,7 @@ def _cerrar(_exc):
 
 
 ESQUEMA = """
-CREATE TABLE IF NOT EXISTS cuentas(id TEXT PRIMARY KEY, correo TEXT UNIQUE, nombre TEXT, hash TEXT, sal TEXT, creado INTEGER);
+CREATE TABLE IF NOT EXISTS cuentas(id TEXT PRIMARY KEY, correo TEXT UNIQUE, nombre TEXT, hash TEXT, sal TEXT, creado INTEGER, google_sub TEXT);
 CREATE TABLE IF NOT EXISTS sesiones(token TEXT PRIMARY KEY, cuenta_id TEXT, creado INTEGER, ultimo INTEGER);
 CREATE TABLE IF NOT EXISTS sucursales(id TEXT PRIMARY KEY, cuenta_id TEXT, nombre TEXT, moneda TEXT, ejemplo INTEGER DEFAULT 0,
     clave_caja TEXT UNIQUE, creado INTEGER, orden INTEGER);
@@ -153,10 +157,12 @@ def sembrar_catalogo(con, sid, activos=None, stock=None):
     return creados
 
 
-def crear_cuenta(con, nombre, correo, contrasena):
+def crear_cuenta(con, nombre, correo, contrasena, google_sub=None):
+    """Sin contraseña (cuenta de Google) el hash queda vacío: solo entra con Google hasta que se ponga una."""
     sal = secrets.token_hex(16)
     cid = uid()
-    con.execute('INSERT INTO cuentas VALUES (?,?,?,?,?,?)', (cid, correo, nombre, hash_pw(contrasena, sal), sal, ahora()))
+    con.execute('INSERT INTO cuentas VALUES (?,?,?,?,?,?,?)',
+                (cid, correo, nombre, hash_pw(contrasena, sal) if contrasena else '', sal, ahora(), google_sub))
     return cid
 
 
@@ -200,6 +206,8 @@ def iniciar():
     cols = {r[1] for r in con.execute('PRAGMA table_info(productos)')}
     if 'costo' not in cols:
         con.execute('ALTER TABLE productos ADD COLUMN costo REAL DEFAULT 0')
+    if 'google_sub' not in {r[1] for r in con.execute('PRAGMA table_info(cuentas)')}:
+        con.execute('ALTER TABLE cuentas ADD COLUMN google_sub TEXT')
     if vieja:
         n = con.execute('SELECT * FROM negocio WHERE id = 1').fetchone()
         correo = (os.environ.get('MIGRACION_CORREO') or 'dueno@verduleria.local').strip().lower()
@@ -276,7 +284,7 @@ def sucursales_de(con, cid):
 
 
 def cuenta_json(c):
-    return {'id': c['id'], 'nombre': c['nombre'], 'correo': c['correo']}
+    return {'id': c['id'], 'nombre': c['nombre'], 'correo': c['correo'], 'con_google': bool(c['google_sub']), 'con_contrasena': bool(c['hash'])}
 
 
 # ---------------- acceso ----------------
@@ -374,7 +382,7 @@ def salud():
 @app.get('/api/estado')
 def api_estado():
     """Solo dice que hay servidor multi-negocio; los datos van por sucursal."""
-    return jsonify(servidor=True, multi=True, version=VERSION, alta_abierta=not CODIGO_ALTA)
+    return jsonify(servidor=True, multi=True, version=VERSION, alta_abierta=not CODIGO_ALTA, google_client_id=GOOGLE_CLIENT_ID)
 
 
 # ---------------- cuentas y sesiones ----------------
@@ -408,11 +416,63 @@ def api_entrar():
     contrasena = str(d.get('contrasena') or '')
     con = db()
     c = con.execute('SELECT * FROM cuentas WHERE correo = ?', (correo,)).fetchone()
+    if c and not c['hash']:
+        return error('Esa cuenta entra con el botón de Google', 401)
     if not c or not secrets.compare_digest(hash_pw(contrasena, c['sal']), c['hash']):
         return error('Correo o contraseña incorrectos', 401)
     tok = nueva_sesion(con, c['id'])
     con.commit()
     return respuesta_sesion(con, c, tok)
+
+
+def verificar_google(credencial):
+    """Valida el ID token con Google y devuelve (sub, correo, nombre) o None."""
+    if not GOOGLE_CLIENT_ID or not credencial:
+        return None
+    try:
+        url = 'https://oauth2.googleapis.com/tokeninfo?' + urllib.parse.urlencode({'id_token': credencial})
+        with urllib.request.urlopen(url, timeout=8) as r:
+            d = json.loads(r.read().decode('utf-8'))
+    except Exception:
+        return None
+    if d.get('aud') != GOOGLE_CLIENT_ID or d.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
+        return None
+    if str(d.get('email_verified')).lower() != 'true' or num(d.get('exp'), 0) * 1000 < ahora():
+        return None
+    correo = texto(d.get('email'), 80).lower()
+    if not correo:
+        return None
+    return d.get('sub'), correo, texto(d.get('name') or correo.split('@')[0], 40)
+
+
+@app.post('/api/sesion/google')
+def api_entrar_google():
+    if not GOOGLE_CLIENT_ID:
+        return error('El acceso con Google no está activado', 404)
+    v = verificar_google(str(cuerpo().get('credential') or ''))
+    if not v:
+        return error('No se pudo verificar la cuenta de Google', 401)
+    sub, correo, nombre = v
+    con = db()
+    c = con.execute('SELECT * FROM cuentas WHERE google_sub = ?', (sub,)).fetchone()
+    nueva = False
+    if not c:
+        c = con.execute('SELECT * FROM cuentas WHERE correo = ?', (correo,)).fetchone()
+        if c:
+            con.execute('UPDATE cuentas SET google_sub = ? WHERE id = ?', (sub, c['id']))
+        else:
+            if CODIGO_ALTA and texto(cuerpo().get('codigo'), 40) != CODIGO_ALTA:
+                return error('Para crear una cuenta hace falta el código de invitación', 403)
+            cid = crear_cuenta(con, nombre, correo, '', google_sub=sub)
+            crear_sucursal(con, cid, 'Mi verdulería')
+            nueva = True
+        c = con.execute('SELECT * FROM cuentas WHERE correo = ?', (correo,)).fetchone()
+    tok = nueva_sesion(con, c['id'])
+    con.commit()
+    resp = respuesta_sesion(con, c, tok)
+    datos = resp.get_json()
+    datos['nueva'] = nueva
+    return jsonify(datos)
 
 
 @app.delete('/api/sesion')
@@ -446,7 +506,7 @@ def api_mi_editar():
     nueva = str(d.get('contrasena_nueva') or '')
     if nueva:
         actual = str(d.get('contrasena_actual') or '')
-        if not secrets.compare_digest(hash_pw(actual, g.cuenta['sal']), g.cuenta['hash']):
+        if g.cuenta['hash'] and not secrets.compare_digest(hash_pw(actual, g.cuenta['sal']), g.cuenta['hash']):
             return error('La contraseña actual no es correcta')
         if len(nueva) < 6:
             return error('La contraseña nueva necesita al menos 6 caracteres')
