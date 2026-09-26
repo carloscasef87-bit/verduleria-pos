@@ -1,7 +1,7 @@
 /* Verdulería al Peso: service worker mínimo.
    Guarda la pantalla (index, manifest, icono) para que la app abra aunque falle la señal;
    la API nunca se cachea. Red primero, caché de respaldo. */
-const CACHE = 'verduleria-v3';
+const CACHE = 'verduleria-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icono.svg'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(() => {})));

@@ -30,6 +30,7 @@ DIAS_HISTORIAL = int(os.environ.get('DIAS_HISTORIAL', '60'))
 CODIGO_ALTA = (os.environ.get('CODIGO_ALTA') or '').strip()
 DIA_MS = 86400000
 SESION_DIAS = 180
+VERSION = '2026-09-25.6'   # el navegador la compara con la suya y se recarga si cambió
 
 # Catálogo inicial: (nombre, imagen = clave de ilustración o emoji, unidad, precio de referencia).
 # Es el mismo que el del index.html. Arranca todo apagado: el dueño enciende en Dirección lo que vende.
@@ -54,8 +55,8 @@ ILUS = {'platano', 'manzana', 'melon', 'sandia', 'limon', 'cilantro', 'perejil',
 UNIDADES = ('kg', 'pieza', 'manojo')
 ARCHIVOS_PUBLICOS = {'index.html': 'text/html; charset=utf-8', 'manifest.webmanifest': 'application/manifest+json',
                      'sw.js': 'application/javascript', 'icono.svg': 'image/svg+xml', 'icono-180.png': 'image/png'}
-COLS_PRODUCTO = 'id, sucursal_id, nombre, ilus, emoji, foto, unidad, precio, activo, declarado, existencia, orden, descripcion, precio_mayoreo, mayoreo_desde'
-INS_PRODUCTO = f'INSERT INTO productos({COLS_PRODUCTO}) VALUES ({",".join("?" * 15)})'
+COLS_PRODUCTO = 'id, sucursal_id, nombre, ilus, emoji, foto, unidad, precio, activo, declarado, existencia, orden, descripcion, precio_mayoreo, mayoreo_desde, costo'
+INS_PRODUCTO = f'INSERT INTO productos({COLS_PRODUCTO}) VALUES ({",".join("?" * 16)})'
 
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # las fotos viajan como data URL
@@ -128,7 +129,7 @@ CREATE TABLE IF NOT EXISTS sucursales(id TEXT PRIMARY KEY, cuenta_id TEXT, nombr
     clave_caja TEXT UNIQUE, creado INTEGER, orden INTEGER);
 CREATE TABLE IF NOT EXISTS productos(id TEXT PRIMARY KEY, sucursal_id TEXT, nombre TEXT, ilus TEXT, emoji TEXT, foto TEXT, unidad TEXT,
     precio REAL, activo INTEGER, declarado REAL, existencia REAL, orden INTEGER, descripcion TEXT DEFAULT '',
-    precio_mayoreo REAL DEFAULT 0, mayoreo_desde REAL DEFAULT 0);
+    precio_mayoreo REAL DEFAULT 0, mayoreo_desde REAL DEFAULT 0, costo REAL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS movimientos(id TEXT PRIMARY KEY, sucursal_id TEXT, ts INTEGER, tipo TEXT, pid TEXT, nombre TEXT, cantidad REAL, unidad TEXT, nota TEXT);
 CREATE TABLE IF NOT EXISTS ventas(id TEXT PRIMARY KEY, sucursal_id TEXT, ts INTEGER, lineas TEXT, total REAL, recibido REAL, cambio REAL);
 CREATE INDEX IF NOT EXISTS ix_prod_suc ON productos(sucursal_id);
@@ -147,7 +148,7 @@ def sembrar_catalogo(con, sid, activos=None, stock=None):
         pid = uid()
         declarado, existencia = stock.get(nombre, (0, 0))
         con.execute(INS_PRODUCTO, (pid, sid, nombre, img if img in ILUS else 'canasta', '' if img in ILUS else img, '', unidad, precio,
-                                   1 if nombre in activos else 0, declarado, existencia, i, '', 0, 0))
+                                   1 if nombre in activos else 0, declarado, existencia, i, '', 0, 0, 0))
         creados.append({'id': pid, 'nombre': nombre, 'unidad': unidad, 'precio': precio, 'declarado': declarado})
     return creados
 
@@ -174,7 +175,7 @@ def crear_sucursal(con, cid, nombre, moneda='$', copiar_de=None, sembrar=True):
     if copiar_de:
         for r in con.execute('SELECT * FROM productos WHERE sucursal_id = ? ORDER BY orden, nombre', (copiar_de,)):
             con.execute(INS_PRODUCTO, (uid(), sid, r['nombre'], r['ilus'], r['emoji'], r['foto'], r['unidad'], r['precio'], r['activo'],
-                                       0, 0, r['orden'], r['descripcion'] or '', r['precio_mayoreo'] or 0, r['mayoreo_desde'] or 0))
+                                       0, 0, r['orden'], r['descripcion'] or '', r['precio_mayoreo'] or 0, r['mayoreo_desde'] or 0, r['costo'] or 0))
     elif sembrar:
         sembrar_catalogo(con, sid)
     return sid
@@ -196,6 +197,9 @@ def iniciar():
             if c not in cols:
                 con.execute(f'ALTER TABLE productos ADD COLUMN {c} {d}')
     con.executescript(ESQUEMA)
+    cols = {r[1] for r in con.execute('PRAGMA table_info(productos)')}
+    if 'costo' not in cols:
+        con.execute('ALTER TABLE productos ADD COLUMN costo REAL DEFAULT 0')
     if vieja:
         n = con.execute('SELECT * FROM negocio WHERE id = 1').fetchone()
         correo = (os.environ.get('MIGRACION_CORREO') or 'dueno@verduleria.local').strip().lower()
@@ -221,7 +225,7 @@ def fila_producto(r):
     return {'id': r['id'], 'nombre': r['nombre'], 'descripcion': r['descripcion'] or '', 'ilus': r['ilus'], 'emoji': r['emoji'] or '',
             'foto': r['foto'] or '', 'unidad': r['unidad'], 'precio': r['precio'], 'activo': bool(r['activo']),
             'declarado': r['declarado'], 'existencia': r['existencia'],
-            'precio_mayoreo': r['precio_mayoreo'] or 0, 'mayoreo_desde': r['mayoreo_desde'] or 0}
+            'precio_mayoreo': r['precio_mayoreo'] or 0, 'mayoreo_desde': r['mayoreo_desde'] or 0, 'costo': r['costo'] or 0}
 
 
 def fila_venta(r):
@@ -236,7 +240,7 @@ def estado_sucursal(suc, para_dueno=False):
     if para_dueno:
         negocio['clave_caja'] = suc['clave_caja']
     return {
-        'servidor': True, 'multi': True, 'negocio': negocio,
+        'servidor': True, 'multi': True, 'version': VERSION, 'negocio': negocio,
         'productos': [fila_producto(r) for r in con.execute('SELECT * FROM productos WHERE sucursal_id = ? ORDER BY orden, nombre', (sid,))],
         'movimientos': [dict(r) for r in con.execute(
             'SELECT id, ts, tipo, pid, nombre, cantidad, unidad, nota FROM movimientos WHERE sucursal_id = ? AND ts >= ? ORDER BY ts', (sid, desde))],
@@ -370,7 +374,7 @@ def salud():
 @app.get('/api/estado')
 def api_estado():
     """Solo dice que hay servidor multi-negocio; los datos van por sucursal."""
-    return jsonify(servidor=True, multi=True, alta_abierta=not CODIGO_ALTA)
+    return jsonify(servidor=True, multi=True, version=VERSION, alta_abierta=not CODIGO_ALTA)
 
 
 # ---------------- cuentas y sesiones ----------------
@@ -548,7 +552,8 @@ def registrar_venta(d):
         p = producto(con, sid, texto(l.get('pid'), 40))
         lineas.append({'pid': p['id'] if p else '', 'nombre': p['nombre'] if p else (texto(l.get('nombre'), 40) or 'Producto'),
                        'cantidad': cantidad, 'unidad': p['unidad'] if p else unidad_valida(l.get('unidad')),
-                       'precio': precio, 'importe': r2(cantidad * precio), 'mayoreo': bool(l.get('mayoreo'))})
+                       'precio': precio, 'importe': r2(cantidad * precio), 'mayoreo': bool(l.get('mayoreo')),
+                       'costo': r2(p['costo'] or 0) if p else r2(max(0.0, num(l.get('costo'))))})
     if not lineas:
         return 'El ticket está vacío'
     total = r2(sum(l['importe'] for l in lineas))
@@ -645,6 +650,11 @@ def api_carga():
             if precio != p['precio']:
                 con.execute('UPDATE productos SET precio = ? WHERE id = ?', (precio, p['id']))
                 cambios += 1
+        if it.get('costo') not in (None, ''):
+            costo = r2(max(0.0, num(it.get('costo'))))
+            if costo != (p['costo'] or 0):
+                con.execute('UPDATE productos SET costo = ? WHERE id = ?', (costo, p['id']))
+                cambios += 1
         if it.get('precio_mayoreo') is not None or it.get('mayoreo_desde') is not None:
             pm = r2(max(0.0, num(it.get('precio_mayoreo'))))
             md = r3(max(0.0, num(it.get('mayoreo_desde'))))
@@ -674,7 +684,8 @@ def datos_producto(d):
     return {'nombre': nombre, 'descripcion': texto(d.get('descripcion'), 60), 'unidad': unidad_valida(d.get('unidad')),
             'precio': r2(max(0.0, num(d.get('precio')))), 'ilus': d.get('ilus') if d.get('ilus') in ILUS else 'canasta',
             'emoji': texto(d.get('emoji'), 8), 'foto': foto,
-            'precio_mayoreo': r2(max(0.0, num(d.get('precio_mayoreo')))), 'mayoreo_desde': r3(max(0.0, num(d.get('mayoreo_desde'))))}, None
+            'precio_mayoreo': r2(max(0.0, num(d.get('precio_mayoreo')))), 'mayoreo_desde': r3(max(0.0, num(d.get('mayoreo_desde')))),
+            'costo': r2(max(0.0, num(d.get('costo'))))}, None
 
 
 @app.post('/api/mi/sucursales/<sid>/productos')
@@ -686,7 +697,7 @@ def api_producto_nuevo():
     con = db()
     orden = con.execute('SELECT COALESCE(MAX(orden), -1) + 1 FROM productos WHERE sucursal_id = ?', (g.suc['id'],)).fetchone()[0]
     con.execute(INS_PRODUCTO, (uid(), g.suc['id'], datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'],
-                               1, 0, 0, orden, datos['descripcion'], datos['precio_mayoreo'], datos['mayoreo_desde']))
+                               1, 0, 0, orden, datos['descripcion'], datos['precio_mayoreo'], datos['mayoreo_desde'], datos['costo']))
     con.commit()
     return responder()
 
@@ -700,9 +711,9 @@ def api_producto_editar(pid):
     datos, err = datos_producto(cuerpo())
     if err:
         return error(err)
-    con.execute('UPDATE productos SET nombre = ?, ilus = ?, emoji = ?, foto = ?, unidad = ?, precio = ?, descripcion = ?, precio_mayoreo = ?, mayoreo_desde = ? WHERE id = ?',
+    con.execute('UPDATE productos SET nombre = ?, ilus = ?, emoji = ?, foto = ?, unidad = ?, precio = ?, descripcion = ?, precio_mayoreo = ?, mayoreo_desde = ?, costo = ? WHERE id = ?',
                 (datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'], datos['descripcion'],
-                 datos['precio_mayoreo'], datos['mayoreo_desde'], pid))
+                 datos['precio_mayoreo'], datos['mayoreo_desde'], datos['costo'], pid))
     con.commit()
     return responder()
 
@@ -827,7 +838,7 @@ def api_restaurar():
         ids.add(pid)
         con.execute(INS_PRODUCTO, (pid, sid, datos['nombre'], datos['ilus'], datos['emoji'], datos['foto'], datos['unidad'], datos['precio'],
                                    0 if p.get('activo') is False else 1, r3(max(0.0, num(p.get('declarado')))), r3(num(p.get('existencia'))), i,
-                                   datos['descripcion'], datos['precio_mayoreo'], datos['mayoreo_desde']))
+                                   datos['descripcion'], datos['precio_mayoreo'], datos['mayoreo_desde'], datos['costo']))
     for m in (d.get('movimientos') or [])[:20000]:
         if not isinstance(m, dict):
             continue

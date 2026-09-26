@@ -29,12 +29,13 @@ ventas y una **clave de caja** de 6 letras.
   cambio, descuenta la existencia y ofrece **enviar el ticket por WhatsApp** (al número del
   cliente o eligiendo el contacto). Si el producto tiene precio de mayoreo, entra solo al llegar
   a la cantidad mínima y el cajero puede forzarlo o quitarlo.
-- **Dashboard**: vendido hoy contra ayer, tickets, kilos, ventas de 7 días en gráfica, lo que
-  más se vende y la lista de productos por reponer.
+- **Dashboard**: vendido hoy contra ayer, tickets, kilos, ganancia estimada del día (precio
+  menos costo, si el dueño cargó costos), ventas de 7 días en gráfica, lo que más se vende y la
+  lista de productos por reponer.
 - **Dirección** (el dueño): catálogo de 51 frutas y verduras comunes, todo apagado al inicio.
   En una sola tabla enciende lo que vende, escribe el precio y el stock actual (lo que guarda
   queda declarado como nivel 100). Puede crear productos nuevos con nombre, descripción,
-  unidad (kilo, pieza o manojo), precio, **precio de mayoreo** con cantidad mínima, e
+  unidad (kilo, pieza o manojo), **costo**, **precio de menudeo**, **precio de mayoreo** con cantidad mínima, e
   ilustración, emoji o foto. Debajo, producto por
   producto: declarar entradas, ajustar por conteo o merma, editar, últimos movimientos.
 - **Corte**: ventas del día por producto, tickets (cada uno con botón de WhatsApp) y entradas.
@@ -46,6 +47,12 @@ ventas y una **clave de caja** de 6 letras.
 Cuando la dirección declara stock (entrada o carga), esa cantidad se vuelve el **declarado**
 (nivel 100). Cada venta baja la existencia y el nivel es `existencia / declarado × 100`.
 0 = se acabó. Verde ≥ 50, ámbar 20–49, rojo < 20.
+
+## Versiones
+
+Cada respuesta del servidor trae su versión; si la página abierta en un teléfono es más vieja,
+se recarga sola. Así una pestaña o app que se quedó abierta no sigue llamando rutas que ya no
+existen.
 
 ## Sin señal
 

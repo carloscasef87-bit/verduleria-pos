@@ -378,10 +378,11 @@ button,a.btn{-webkit-tap-highlight-color:transparent}
   .tabla-carga tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
   .tabla-carga td{display:block;padding:0;border:0;text-align:left}
   .tabla-carga td:nth-child(1){grid-column:1;grid-row:1}
-  .tabla-carga td:nth-child(6){grid-column:2;grid-row:1;justify-self:end}
+  .tabla-carga td:nth-child(7){grid-column:2;grid-row:1;justify-self:end}
   .tabla-carga td:nth-child(2){grid-column:1;grid-row:2}
   .tabla-carga td:nth-child(3){grid-column:2;grid-row:2}
-  .tabla-carga td:nth-child(4){grid-column:1/-1;grid-row:3}
+  .tabla-carga td:nth-child(4){grid-column:1;grid-row:3}
+  .tabla-carga td:nth-child(6){grid-column:2;grid-row:3;align-self:end;padding-bottom:10px}
   .tabla-carga td:nth-child(5){grid-column:1/-1;grid-row:4}
   .celda-input.doble input{width:auto;flex:1;min-width:0}
   .lbl-cel{display:block;font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
@@ -542,6 +543,7 @@ const CLAVE_SESION = 'verduleria.sesion'; // servidor: sesión del dueño
 const CLAVE_SUC = 'verduleria.sucursal';  // servidor: sucursal abierta en dirección
 const CLAVE_CAJA = 'verduleria.caja';     // servidor: clave de caja de este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
+const VERSION = '2026-09-25.6';           // si el servidor trae otra, la página se recarga sola
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -604,6 +606,17 @@ function banda(p){
   return n >= 50 ? 'ok' : n >= 20 ? 'warn' : 'bad';
 }
 function tieneMayoreo(p){ return p.precio_mayoreo > 0 && p.mayoreo_desde > 0; }
+function margenTxt(p){ if (!(p.costo > 0) || !(p.precio > 0)) return ''; return `margen ${Math.round((p.precio - p.costo) / p.precio * 100)} %`; }
+function gananciaDe(ventas, iso){
+  let g = 0, con = false;
+  ventas.forEach(v => { if (iso && fechaLocal(v.ts) !== iso) return; v.lineas.forEach(l => { if (l.costo > 0) { con = true; g += l.importe - l.cantidad * l.costo; } }); });
+  return con ? r2(g) : null;
+}
+function recargarSiNueva(v){
+  if (!v || v === VERSION) return;
+  try { if (sessionStorage.getItem('verduleria.recarga') === v) return; sessionStorage.setItem('verduleria.recarga', v); } catch (e) {}
+  toast('Hay una versión nueva. Se recarga…'); setTimeout(() => location.reload(), 900);
+}
 function mayoreoTxt(p){ return `${dinero(p.precio_mayoreo)} desde ${cantidadTxt(p.mayoreo_desde, p.unidad)}`; }
 
 /* Almacenamiento del navegador: siempre puede fallar (privado, bloqueado), por eso va entre try. */
@@ -814,7 +827,8 @@ function filaCargaHTML(p){
   const n = nivel(p);
   return `<tr data-banda="${banda(p)}" data-nombre="${esc(p.nombre.toLowerCase())}"${p.activo ? '' : ' class="apagada"'}>
     <td><span class="prod-celda">${ilusDe(p, 'chica')}<span>${esc(p.nombre)}${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span></span></td>
-    <td class="num"><small class="lbl-cel">Precio</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio}" data-c-precio="${p.id}" aria-label="Precio de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
+    <td class="num"><small class="lbl-cel">Costo</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.costo || ''}" data-c-costo="${p.id}" placeholder="0" aria-label="Costo de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
+    <td class="num"><small class="lbl-cel">Precio menudeo</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio}" data-c-precio="${p.id}" aria-label="Precio de menudeo de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
     <td class="num"><small class="lbl-cel">Stock actual</small><span class="celda-input"><input type="number" min="0" step="any" inputmode="decimal" value="${trim3(Math.max(0, p.existencia))}" data-c-stock="${p.id}" aria-label="Stock actual de ${esc(p.nombre)}"><small>${unidadCorta(p.unidad)}</small></span></td>
     <td class="num"><small class="lbl-cel">Mayoreo (opcional)</small><span class="celda-input doble">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio_mayoreo || ''}" data-c-may="${p.id}" placeholder="precio" aria-label="Precio de mayoreo de ${esc(p.nombre)}"><small>desde</small><input type="number" min="0" step="any" inputmode="decimal" value="${p.mayoreo_desde || ''}" data-c-desde="${p.id}" placeholder="0" aria-label="Cantidad mínima de mayoreo de ${esc(p.nombre)}"><small>${unidadCorta(p.unidad)}</small></span></td>
     <td><span class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b></span></td>
@@ -827,7 +841,7 @@ function tarjetasDireccionHTML(){
     return `<div class="fila" data-banda="${banda(p)}">
       ${ilusDe(p)}
       <div class="info">
-        <div class="titulo"><b>${esc(p.nombre)}</b><span class="precio-txt">${dinero(p.precio)}/${unidadCorta(p.unidad)}${tieneMayoreo(p) ? ` · mayoreo ${mayoreoTxt(p)}` : ''}</span></div>
+        <div class="titulo"><b>${esc(p.nombre)}</b><span class="precio-txt">${dinero(p.precio)}/${unidadCorta(p.unidad)}${tieneMayoreo(p) ? ` · mayoreo ${mayoreoTxt(p)}` : ''}${p.costo > 0 ? ` · costo ${dinero(p.costo)} · ${margenTxt(p)}` : ''}</span></div>
         <div class="nivel"><span class="barra-nivel"><i style="width:${n}%"></i></span><b>${n}</b><span>de 100</span></div>
         <div class="datos"><span>Existencia <b>${cantidadTxt(p.existencia, p.unidad)}</b></span><span>Declarado <b>${cantidadTxt(p.declarado, p.unidad)}</b></span>${p.existencia <= 0 ? '<span style="color:var(--bad);font-weight:700">Agotado</span>' : ''}</div>
       </div>
@@ -846,9 +860,9 @@ function vistaDireccion(){
   const encendidos = estado.productos.filter(p => p.activo).length;
   const ordenados = estado.productos.filter(p => p.activo).concat(estado.productos.filter(p => !p.activo));
   const tabla = estado.productos.length ? `<form class="seccion" data-form="carga"><h3>Productos, precios y stock</h3>
-      <p class="ayuda">Enciende lo que vendes, escribe el precio y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100. Mayoreo: precio especial a partir de una cantidad (la caja lo aplica sola). Los apagados no aparecen en la caja.</p>
+      <p class="ayuda">Enciende lo que vendes y escribe lo que te cuesta, a cómo lo das de menudeo y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100. Mayoreo: precio especial a partir de una cantidad (la caja lo aplica sola). El costo sirve para ver la ganancia en el Dashboard y el Corte.</p>
       <div class="filtro-tabla"><input id="filtro-carga" type="search" placeholder="Buscar en el catálogo…" aria-label="Buscar producto" autocomplete="off"><span class="cuenta">${encendidos} encendido${encendidos === 1 ? '' : 's'} de ${estado.productos.length}</span></div>
-      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Stock actual</th><th class="num">Mayoreo</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div>
+      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Costo</th><th class="num">Menudeo</th><th class="num">Stock actual</th><th class="num">Mayoreo</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div>
       <div class="botonera"><button type="submit" class="btn primario">Guardar precios y stock</button></div></form>` : '';
   return `<div class="direccion">
     <div class="acciones"><h2>Dirección</h2><span class="ayuda">Nivel 100 = lo que declaraste · 0 = se acabó</span><span class="espacio"></span><button class="btn primario" data-accion="entrada">Declarar entrada</button><button class="btn borde" data-accion="nuevo">Nuevo producto</button></div>
@@ -924,6 +938,7 @@ function vistaDashboard(){
       <div class="tile"><small>Vendido hoy</small><b>${dinero(hoyR.total)}</b><span class="delta">${deltaTxt}</span></div>
       <div class="tile"><small>Tickets hoy</small><b>${hoyR.tickets}</b><span class="delta">${hoyR.tickets ? 'promedio ' + dinero(hoyR.total / hoyR.tickets) : ''}</span></div>
       <div class="tile"><small>Kilos hoy</small><b>${trim3(hoyR.kg)}</b><span class="delta"></span></div>
+      ${(g => g === null ? '' : `<div class="tile"><small>Ganancia hoy (estimada)</small><b>${dinero(g)}</b><span class="delta">precio menos costo</span></div>`)(gananciaDe(estado.ventas, hoyR.iso))}
       <div class="tile"><small>Últimos 7 días</small><b>${dinero(semana)}</b><span class="delta">${dias.reduce((s, d) => s + d.tickets, 0)} tickets</span></div>
     </div>
     <div class="dash-grid">
@@ -951,6 +966,7 @@ function vistaDashboardTodas(){
       <div class="tile"><small>Vendido hoy (todas)</small><b>${dinero(hoyT.total)}</b><span class="delta">${dif === null ? '' : (dif >= 0 ? '▲ ' : '▼ ') + Math.abs(dif) + ' % vs ayer'}</span></div>
       <div class="tile"><small>Tickets hoy</small><b>${hoyT.tickets}</b><span class="delta">${hoyT.tickets ? 'promedio ' + dinero(hoyT.total / hoyT.tickets) : ''}</span></div>
       <div class="tile"><small>Kilos hoy</small><b>${trim3(hoyT.kg)}</b><span class="delta"></span></div>
+      ${(g => g === null ? '' : `<div class="tile"><small>Ganancia hoy (estimada)</small><b>${dinero(g)}</b><span class="delta">precio menos costo</span></div>`)(gananciaDe(todasVentas, hoyT.iso))}
       <div class="tile"><small>Últimos 7 días</small><b>${dinero(r2(tot.reduce((a, d) => a + d.total, 0)))}</b><span class="delta">${tot.reduce((a, d) => a + d.tickets, 0)} tickets</span></div>
     </div>
     <div class="seccion"><h3>Por sucursal</h3><div class="tabla-wrap"><table><thead><tr><th>Sucursal</th><th class="num">Hoy</th><th class="num">Ayer</th><th class="num">7 días</th><th class="num">Tickets 7d</th><th class="num">Por reponer</th></tr></thead><tbody>${porSuc.map(x => `<tr><td><button class="enlace" data-accion="sucursal-ir" data-id="${x.s.id}">${esc(x.s.nombre)}</button></td><td class="num">${dinero(x.hoy.total)}</td><td class="num">${dinero(x.ayer.total)}</td><td class="num">${dinero(x.semana)}</td><td class="num">${x.tickets7}</td><td class="num">${x.s.alertas.length}</td></tr>`).join('')}</tbody></table></div></div>
@@ -969,11 +985,14 @@ function vistaCorte(){
   const total = r2(ventas.reduce((s, v) => s + v.total, 0));
   const porProd = {};
   let kgTotal = 0;
+  let conCosto = false;
   ventas.forEach(v => v.lineas.forEach(l => {
-    const k = l.nombre; porProd[k] = porProd[k] || {nombre: l.nombre, unidad: l.unidad, cantidad: 0, importe: 0};
+    const k = l.nombre; porProd[k] = porProd[k] || {nombre: l.nombre, unidad: l.unidad, cantidad: 0, importe: 0, ganancia: 0};
     porProd[k].cantidad = r3(porProd[k].cantidad + l.cantidad); porProd[k].importe = r2(porProd[k].importe + l.importe);
+    if (l.costo > 0) { conCosto = true; porProd[k].ganancia = r2(porProd[k].ganancia + l.importe - l.cantidad * l.costo); }
     if (l.unidad === 'kg') kgTotal += l.cantidad;
   }));
+  const ganancia = gananciaDe(ventas, null);
   const filasProd = Object.values(porProd).sort((a, b) => b.importe - a.importe);
   const movs = estado.movimientos.filter(m => fechaLocal(m.ts) === dia && m.tipo !== 'venta').sort((a, b) => b.ts - a.ts);
   return `<div class="corte">
@@ -984,8 +1003,9 @@ function vistaCorte(){
       <div class="tile"><small>Cobrado</small><b>${dinero(total)}</b></div>
       <div class="tile"><small>Kilos vendidos</small><b>${trim3(kgTotal)}</b></div>
       <div class="tile"><small>Ticket promedio</small><b>${ventas.length ? dinero(total / ventas.length) : '—'}</b></div>
+      ${ganancia === null ? '' : `<div class="tile"><small>Ganancia estimada</small><b>${dinero(ganancia)}</b></div>`}
     </div>
-    <div class="seccion"><h3>Por producto</h3>${filasProd.length ? `<div class="tabla-wrap"><table><thead><tr><th>Producto</th><th class="num">Vendido</th><th class="num">Importe</th></tr></thead><tbody>${filasProd.map(f => `<tr><td>${esc(f.nombre)}</td><td class="num">${cantidadTxt(f.cantidad, f.unidad)}</td><td class="num">${dinero(f.importe)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="vacio">No hubo ventas este día.</div>`}</div>
+    <div class="seccion"><h3>Por producto</h3>${filasProd.length ? `<div class="tabla-wrap"><table><thead><tr><th>Producto</th><th class="num">Vendido</th><th class="num">Importe</th>${conCosto ? '<th class="num">Ganancia</th>' : ''}</tr></thead><tbody>${filasProd.map(f => `<tr><td>${esc(f.nombre)}</td><td class="num">${cantidadTxt(f.cantidad, f.unidad)}</td><td class="num">${dinero(f.importe)}</td>${conCosto ? `<td class="num">${dinero(f.ganancia)}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : `<div class="vacio">No hubo ventas este día.</div>`}</div>
     <div class="seccion"><h3>Tickets</h3>${ventas.length ? ventas.map(v => `<details class="tk"><summary><span class="hora">${horaTxt(v.ts)}</span><span class="muted">${v.lineas.length} art.</span><span class="tot">${dinero(v.total)}</span></summary>${v.lineas.map(l => `<div class="linea"><div>${esc(l.nombre)} <span class="q">${cantidadTxt(l.cantidad, l.unidad)} × ${dinero(l.precio)}${l.mayoreo ? ' · mayoreo' : ''}</span></div><div class="imp">${dinero(l.importe)}</div><span></span></div>`).join('')}<div class="linea"><div class="q">Recibido ${dinero(v.recibido)} · Cambio ${dinero(v.cambio)}</div><span></span><span></span></div><div class="tk-acciones"><a class="btn chico wa" href="${enlaceWA(textoTicket(v))}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div></details>`).join('') : `<div class="vacio">Sin tickets.</div>`}</div>
     <div class="seccion"><h3>Entradas y ajustes del día</h3>${movimientosHTML(movs)}</div>
   </div>`;
@@ -1127,7 +1147,7 @@ function agregarLinea(){
   const p = prod(pesa.pid); if (!p) return;
   const {cantidad, importe, precio, mayoreo} = calcPesa(p);
   if (!(cantidad > 0)) return;
-  ticket.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio, importe, mayoreo});
+  ticket.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio, importe, mayoreo, costo: p.costo || 0});
   cerrarModal(); renderTicket(); snapshot();
   toast(`${p.nombre} · ${cantidadTxt(cantidad, p.unidad)} · ${dinero(importe)}`);
 }
@@ -1241,13 +1261,14 @@ function ajustarHTML(pid){
 const EMOJIS_SUGERIDOS = ['🍌','🍎','🍊','🍋','🍉','🍈','🍇','🍓','🍍','🥭','🍐','🍑','🍒','🥝','🥥','🫐','🍅','🧅','🥔','🥕','🌶️','🫑','🥬','🥒','🌽','🥦','🧄','🍠','🍄','🌿','🥜','🫛','🍆','🌵'];
 function abrirEditar(id){
   const p = id ? prod(id) : null;
-  edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, precio_mayoreo: p.precio_mayoreo || '', mayoreo_desde: p.mayoreo_desde || '', ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
-              : {id: null, nombre: '', descripcion: '', unidad: 'kg', precio: '', precio_mayoreo: '', mayoreo_desde: '', ilus: 'canasta', emoji: '', foto: ''};
+  edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, costo: p.costo || '', precio_mayoreo: p.precio_mayoreo || '', mayoreo_desde: p.mayoreo_desde || '', ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
+              : {id: null, nombre: '', descripcion: '', unidad: 'kg', precio: '', costo: '', precio_mayoreo: '', mayoreo_desde: '', ilus: 'canasta', emoji: '', foto: ''};
   edicion.tipo = edicion.foto ? 'foto' : edicion.emoji ? 'emoji' : 'ilus';
   abrirModal('editar');
 }
 function sincronizarEdicion(){
-  const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji'), may = $('#ed-may'), desde = $('#ed-desde');
+  const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji'), may = $('#ed-may'), desde = $('#ed-desde'), co = $('#ed-costo');
+  if (co) edicion.costo = co.value;
   if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
   if (may) edicion.precio_mayoreo = may.value; if (desde) edicion.mayoreo_desde = desde.value;
 }
@@ -1272,12 +1293,13 @@ function editarHTML(){
       <div class="campo"><label for="ed-desc">Descripción (opcional)</label><input id="ed-desc" maxlength="60" value="${esc(e.descripcion)}" placeholder="Saladet, de Sinaloa"></div>
       <div class="campos-2">
         <div class="campo"><label for="ed-unidad">Se vende por</label><select id="ed-unidad"><option value="kg"${e.unidad === 'kg' ? ' selected' : ''}>Kilo (se pesa)</option><option value="pieza"${e.unidad === 'pieza' ? ' selected' : ''}>Pieza</option><option value="manojo"${e.unidad === 'manojo' ? ' selected' : ''}>Manojo</option></select></div>
-        <div class="campo"><label for="ed-precio">Precio</label><input id="ed-precio" type="number" min="0" step="any" inputmode="decimal" required value="${esc(e.precio)}" placeholder="0"></div>
+        <div class="campo"><label for="ed-precio">Precio menudeo</label><input id="ed-precio" type="number" min="0" step="any" inputmode="decimal" required value="${esc(e.precio)}" placeholder="0"></div>
       </div>
       <div class="campos-2">
+        <div class="campo"><label for="ed-costo">Costo (lo que te cuesta)</label><input id="ed-costo" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.costo)}" placeholder="0"></div>
         <div class="campo"><label for="ed-may">Precio de mayoreo (opcional)</label><input id="ed-may" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.precio_mayoreo)}" placeholder="0"></div>
-        <div class="campo"><label for="ed-desde">A partir de (${unidadPlural(e.unidad)})</label><input id="ed-desde" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.mayoreo_desde)}" placeholder="5"></div>
       </div>
+      <div class="campo"><label for="ed-desde">Mayoreo a partir de (${unidadPlural(e.unidad)})</label><input id="ed-desde" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.mayoreo_desde)}" placeholder="5"></div>
       <div class="campo"><label>Imagen</label>
         <div class="segmento">${[['ilus', 'Ilustración'], ['emoji', 'Emoji'], ['foto', 'Foto']].map(([k, l]) => `<button type="button" data-accion="ed-tipo" data-v="${k}" aria-pressed="${e.tipo === k}">${l}</button>`).join('')}</div>
       </div>
@@ -1332,6 +1354,7 @@ function pintarRed(){
   el.classList.toggle('mal', !enLinea);
 }
 function adoptar(datos){
+  if (datos && datos.version) recargarSiNueva(datos.version);
   if (!datos || !Array.isArray(datos.productos)) return;
   estado = datos; migrar();
   if (Array.isArray(datos.sucursales)) sucursales = datos.sucursales;
@@ -1356,7 +1379,7 @@ async function ejecutar(op){
   marcarRed(true);
   if (r.status === 401) { cerrarSesion('Vuelve a entrar con tu correo y contraseña'); return false; }
   if (r.status === 404 && perfil === 'caja' && !op.absoluta) { perderCaja('Esa clave de caja ya no vale. Pide la nueva a dirección.'); return false; }
-  if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo guardar'); return false; }
+  if (!r.ok) { toast((r.datos && r.datos.error) || `No se pudo guardar (error ${r.status}). Recarga la página.`); return false; }
   if (r.datos && Array.isArray(r.datos.productos)) adoptar(r.datos);
   else if (r.datos && Array.isArray(r.datos.sucursales)) sucursales = r.datos.sucursales;
   return r.datos || true;
@@ -1373,7 +1396,7 @@ async function enviarVenta(venta){
   if (r.ok) { adoptar(r.datos); if (!modalActual) render(); return true; }
   if (r.status === 404 && perfil === 'caja') { encolar(ruta, venta); perderCaja('Esa clave de caja ya no vale. La venta queda guardada en este teléfono.'); return false; }
   if (r.status === 401) { encolar(ruta, venta); cerrarSesion('Vuelve a entrar; la venta queda guardada en este teléfono.'); return false; }
-  toast((r.datos && r.datos.error) || 'El servidor rechazó la venta'); return false;
+  toast((r.datos && r.datos.error) || `El servidor rechazó la venta (error ${r.status})`); return false;
 }
 async function enviarCola(){
   if (MODO !== 'servidor' || !cola.length || sincronizando) return;
@@ -1469,7 +1492,7 @@ function migrar(){
     p.id = p.id || uid(); p.unidad = p.unidad === 'pieza' || p.unidad === 'manojo' ? p.unidad : 'kg'; p.activo = p.activo !== false; p.descripcion = p.descripcion || '';
     p.precio = num(p.precio); p.existencia = num(p.existencia); p.declarado = num(p.declarado);
     p.ilus = ILUS[p.ilus] ? p.ilus : 'canasta'; p.emoji = p.emoji || ''; p.foto = p.foto || '';
-    p.precio_mayoreo = num(p.precio_mayoreo); p.mayoreo_desde = num(p.mayoreo_desde);
+    p.precio_mayoreo = num(p.precio_mayoreo); p.mayoreo_desde = num(p.mayoreo_desde); p.costo = num(p.costo);
   });
 }
 
@@ -1650,8 +1673,8 @@ const formularios = {
   },
   carga: async () => {
     const items = estado.productos.map(p => {
-      const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`), im = $(`[data-c-may="${p.id}"]`), idd = $(`[data-c-desde="${p.id}"]`);
-      const it = {id: p.id, precio: ip ? ip.value : '', existencia: is ? is.value : ''};
+      const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`), im = $(`[data-c-may="${p.id}"]`), idd = $(`[data-c-desde="${p.id}"]`), ic = $(`[data-c-costo="${p.id}"]`);
+      const it = {id: p.id, precio: ip ? ip.value : '', existencia: is ? is.value : '', costo: ic ? ic.value : ''};
       if (im && idd) { it.precio_mayoreo = r2(Math.max(0, num(im.value))); it.mayoreo_desde = r3(Math.max(0, num(idd.value))); }
       return it;
     });
@@ -1660,6 +1683,7 @@ const formularios = {
       items.forEach(it => {
         const p = prod(it.id); if (!p) return;
         if (it.precio !== '') { const v = r2(Math.max(0, num(it.precio))); if (v !== p.precio) p.precio = v; }
+        if (it.costo !== '') p.costo = r2(Math.max(0, num(it.costo)));
         if (it.precio_mayoreo !== undefined) { p.precio_mayoreo = it.precio_mayoreo; p.mayoreo_desde = it.mayoreo_desde; }
         if (it.existencia !== '') {
           const v = r3(Math.max(0, num(it.existencia)));
@@ -1677,7 +1701,7 @@ const formularios = {
     const nombre = e.nombre.trim(); const precio = r2(num(e.precio));
     if (!nombre) { toast('Ponle nombre al producto'); return; }
     if (e.tipo === 'ilus') { e.emoji = ''; e.foto = ''; } else if (e.tipo === 'emoji') { e.foto = ''; }
-    const datos = {nombre, descripcion: (e.descripcion || '').trim(), unidad: e.unidad, precio, precio_mayoreo: r2(Math.max(0, num(e.precio_mayoreo))), mayoreo_desde: r3(Math.max(0, num(e.mayoreo_desde))), ilus: e.ilus, emoji: e.emoji, foto: e.foto};
+    const datos = {nombre, descripcion: (e.descripcion || '').trim(), unidad: e.unidad, precio, costo: r2(Math.max(0, num(e.costo))), precio_mayoreo: r2(Math.max(0, num(e.precio_mayoreo))), mayoreo_desde: r3(Math.max(0, num(e.mayoreo_desde))), ilus: e.ilus, emoji: e.emoji, foto: e.foto};
     const ok = await ejecutar(e.id
       ? {metodo: 'PUT', ruta: `/productos/${e.id}`, cuerpo: datos, local: () => { Object.assign(prod(e.id), datos); }}
       : {ruta: '/productos', cuerpo: datos, local: () => { estado.productos.push(Object.assign({id: uid(), activo: true, declarado: 0, existencia: 0}, datos)); }});
@@ -1716,7 +1740,7 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'corte-dia') { corteDia = t.value || null; render(); }
   else if (t.id === 'sel-sucursal') { if (t.value === 'nueva') { t.value = sucursalId; abrirModal('sucursal-nueva'); } else cambiarSucursal(t.value); }
-  else if (t.id === 'ed-unidad') { const l = $('label[for="ed-desde"]'); if (l) l.textContent = 'A partir de (' + unidadPlural(t.value) + ')'; }
+  else if (t.id === 'ed-unidad') { const l = $('label[for="ed-desde"]'); if (l) l.textContent = 'Mayoreo a partir de (' + unidadPlural(t.value) + ')'; }
   else if (t.id === 'ent-prod') { const p = prod(t.value); const u = $('#ent-unidad'); if (p && u) u.textContent = unidadPlural(p.unidad); }
   else if (t.id === 'ed-foto') { const f = t.files && t.files[0]; if (!f) return; sincronizarEdicion(); leerFoto(f, url => { edicion.foto = url; edicion.emoji = ''; pintarModal(); }); }
   else if (t.id === 'aj-archivo') { const f = t.files && t.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const ta = $('#aj-respaldo'); if (ta) ta.value = r.result; restaurar(r.result); }; r.readAsText(f); t.value = ''; }
@@ -1758,7 +1782,7 @@ async function start(hot){
   if (cajaURL) { claveCaja = cajaURL; escribirLS(CLAVE_CAJA, claveCaja); perfil = 'caja'; escribirLS(CLAVE_PERFIL, 'caja'); try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} }
   const r = await llamar('GET', '/estado');
   if (r.ok && r.datos && r.datos.servidor) {
-    MODO = 'servidor'; escribirLS(CLAVE_MODO, 'servidor'); altaAbierta = r.datos.alta_abierta !== false;
+    MODO = 'servidor'; escribirLS(CLAVE_MODO, 'servidor'); altaAbierta = r.datos.alta_abierta !== false; recargarSiNueva(r.datos.version);
     if (perfil === 'direccion') { if (!sesion || !(await cargarCuenta()) || !(await cargarEstadoSucursal())) perfil = null; }
     else if (perfil === 'caja') { if (!claveCaja || !(await cargarEstadoCaja())) perfil = null; }
     if (!perfil) { escribirLS(CLAVE_PERFIL, null); estado = estadoVacio(); }
@@ -1784,8 +1808,9 @@ async function start(hot){
   if (perfil !== 'direccion') vista = 'vender';
   render(); pintarRed();
   if (MODO === 'servidor') {
-    setInterval(sincronizar, 20000); setInterval(enviarCola, 10000);
+    setInterval(sincronizar, 15000); setInterval(enviarCola, 10000);
     window.addEventListener('online', () => { enviarCola(); sincronizar(); });
+    window.addEventListener('focus', () => { enviarCola(); sincronizar(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { enviarCola(); sincronizar(); } });
     enviarCola();
   }
