@@ -7,12 +7,19 @@ SQLite) para que varios teléfonos vean lo mismo.
 - **Demo en Railway (la que se le deja al cliente):** https://verduleria-pos-production.up.railway.app
 - Demo estática con datos inventados (sin servidor): https://carloscasef87-bit.github.io/verduleria-pos/
 
-## Dos perfiles por teléfono
+## Varias verdulerías, varias sucursales
 
-Al abrir por primera vez, el teléfono pregunta si es **Punto de venta** (solo la pantalla de
-vender, sin pestañas) o **Dirección** (dashboard, dirección, corte, ajustes, y también vender).
-Lo recuerda. Desde la caja se entra a Dirección con el PIN del dueño; desde Dirección, «Salir a
-caja». El PIN se pone en Ajustes y hay que ponerlo antes de dejar el sistema en el puesto.
+Un solo servidor sirve a muchas verdulerías. Cada dueño crea su **cuenta** (correo y
+contraseña) y tiene una o más **sucursales**; cada sucursal tiene su catálogo, precios, stock,
+ventas y una **clave de caja** de 6 letras.
+
+- **Punto de venta**: el teléfono de la caja abre la dirección y escribe la clave de caja (o
+  abre el enlace `?caja=CLAVE` que el dueño le manda por WhatsApp). Solo ve la pantalla de vender.
+  No necesita cuenta. Si el dueño cambia la clave, ese teléfono deja de vender hasta escribir la nueva.
+- **Dirección**: el dueño entra con su correo. Arriba elige la sucursal; el Dashboard tiene
+  «Esta sucursal / Todas» para comparar puestos. En Ajustes crea sucursales (copiando el
+  catálogo y los precios de otra si quiere), ve la clave de caja de cada una y cambia su cuenta.
+- Crear cuenta es libre. Para cerrarlo a invitados, se define la variable `CODIGO_ALTA` en Railway.
 
 ## Qué hace
 
@@ -64,24 +71,25 @@ servidor; si no (GitHub Pages, un archivo abierto a mano), guarda en el navegado
 ## Railway
 
 Proyecto `verduleria-pos`, servicio `verduleria-pos`, volumen montado en `/data` y variable
-`DATOS_DIR=/data` (ahí viven `verduleria.db` y `secreto.txt`). Se despliega con `railway up`
-desde esta carpeta. Un solo worker de gunicorn (SQLite).
+`DATOS_DIR=/data` (ahí vive `verduleria.db`). Se despliega con `railway up` desde esta carpeta.
+Un solo worker de gunicorn (SQLite). Las variables `MIGRACION_CORREO` y `MIGRACION_CONTRASENA`
+solo se usaron una vez, para convertir la base de un solo negocio en la primera cuenta.
 
 ## API
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `GET /api/estado` | todos | productos, negocio y últimos 60 días de ventas y movimientos |
-| `POST /api/ventas` | caja | registra una venta (idempotente por `id`) y descuenta stock |
-| `POST /api/pin` | caja | cambia el PIN por un token (`X-Token`) para las rutas de dirección |
-| `POST /api/carga` | dirección | precio y stock actual de varios productos |
-| `POST /api/entradas`, `/api/ajustes` | dirección | entrada de mercancía, conteo o merma |
-| `POST/PUT/DELETE /api/productos[/id]`, `POST /api/productos/id/activo` | dirección | alta, edición, baja, encender/apagar |
-| `PUT /api/negocio` | dirección | nombre, moneda, PIN |
-| `POST /api/ejemplo`, `/api/limpio`, `/api/borrar`, `/api/restaurar` | dirección | datos de demostración, limpieza y respaldo |
+| `GET /api/estado` | todos | dice que hay servidor multi-negocio y si el alta está abierta |
+| `POST /api/cuentas`, `POST/DELETE /api/sesion`, `GET/PUT /api/mi` | dueño | crear cuenta, entrar y salir (`X-Sesion`), ver y editar la cuenta |
+| `GET /api/mi/resumen` | dueño | ventas de 8 días y alertas de todas las sucursales |
+| `POST /api/mi/sucursales`, `PUT/DELETE …/<id>`, `POST …/<id>/clave` | dueño | crear, editar, borrar sucursal, nueva clave de caja |
+| `GET /api/mi/sucursales/<id>/estado` | dueño | productos y últimos 60 días de esa sucursal |
+| `POST …/<id>/ventas`, `entradas`, `ajustes`, `carga`, `productos…`, `ejemplo`, `limpio`, `borrar`, `restaurar` | dueño | operaciones de la sucursal |
+| `GET /api/c/<clave>/estado`, `POST /api/c/<clave>/ventas` | caja | lo único que puede hacer un teléfono de punto de venta |
 
 ## Límites que hay que saber
 
 - No se conecta a la báscula: el peso se teclea.
-- El PIN protege las pantallas de dirección, no es una autenticación fuerte.
-- Un negocio por instalación; para otra verdulería se despliega otra copia.
+- La clave de caja es un secreto de 6 letras: quien la tenga puede vender en esa sucursal (no
+  puede ver ni cambiar nada más). Se cambia desde Ajustes.
+- Una base SQLite para todas las cuentas; sirve para decenas de verdulerías. Más allá, Postgres.

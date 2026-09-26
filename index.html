@@ -75,7 +75,22 @@ nav.pestanas .solo-movil{display:none}
 .perfiles h2{font-family:var(--display);font-size:1.5rem;margin:0}
 .perfil{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 14px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:16px;text-align:left;box-shadow:var(--shadow);width:100%}
 .perfil b{font-family:var(--display);font-size:1.2rem}
-.perfil>span:last-child{color:var(--muted);font-size:.9rem;grid-column:2}
+.perfil>b+span{color:var(--muted);font-size:.9rem;grid-column:2}
+.entrada-form{grid-column:2;display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.entrada-form input{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--ground);min-height:44px;width:100%}
+.hoja .entrada-form{grid-column:auto;margin-top:0}
+.sel-suc{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);font-weight:700;max-width:200px;min-height:40px}
+@media (max-width:699px){.app.con-sel .marca>div{display:none}}
+.clave-caja{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.clave-caja b{font-family:var(--display);font-size:1.6rem;letter-spacing:.12em;background:var(--paper-2);padding:6px 12px;border-radius:10px;font-variant-numeric:tabular-nums}
+.lista-suc{display:flex;flex-direction:column;gap:6px}
+.suc-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.suc-fila.actual{border-color:var(--accent)}
+.suc-fila b{font-family:var(--display)}
+.suc-fila .muted{font-size:.85rem;margin-right:auto}
+.dash-sel{max-width:260px;flex:1}
+.enlace{color:var(--accent);font-weight:700;text-decoration:underline;padding:0}
+.sub-suc{margin:8px 0 0;font-family:var(--display);font-size:.95rem;color:var(--muted)}
 .perfil-icono{grid-row:1/3;width:52px;height:52px;border-radius:14px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
 .perfil-icono svg{width:28px;height:28px}
 .perfil:active{transform:scale(.98)}
@@ -385,6 +400,7 @@ button,a.btn{-webkit-tap-highlight-color:transparent}
       <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c0-8 4-13 14-15-1 9-5 14-14 15z"/><path d="M5 20c3-5 7-8 10-10"/></svg></div>
       <div><h1 id="nombre-negocio">Mi verdulería</h1><small id="perfil-txt">Verdulería al Peso</small></div>
     </div>
+    <select id="sel-sucursal" class="sel-suc" hidden aria-label="Sucursal"></select>
     <button id="a-direccion" class="btn chico borde" data-accion="a-direccion" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Dirección</button>
     <nav class="pestanas" id="nav" aria-label="Secciones">
       <button data-accion="ir" data-vista="vender" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2 11H5L3 9z"/><path d="M7 9l3-6m7 6l-3-6M9 13v4m6-4v4"/></svg>Vender</button>
@@ -520,8 +536,11 @@ const CLAVE = 'verduleria.v1';           // datos en modo local (sin servidor)
 const CLAVE_CACHE = 'verduleria.cache';  // última copia del estado del servidor, para abrir sin señal
 const CLAVE_COLA = 'verduleria.cola';    // ventas hechas sin señal, pendientes de enviar
 const CLAVE_MODO = 'verduleria.modo';
-const CLAVE_TOKEN = 'verduleria.token';   // el teléfono de dirección se queda abierto hasta «Salir a caja»
+const CLAVE_TOKEN = 'verduleria.token';   // modo local: PIN tecleado en este teléfono
 const CLAVE_PERFIL = 'verduleria.perfil'; // 'caja' o 'direccion': qué es este teléfono
+const CLAVE_SESION = 'verduleria.sesion'; // servidor: sesión del dueño
+const CLAVE_SUC = 'verduleria.sucursal';  // servidor: sucursal abierta en dirección
+const CLAVE_CAJA = 'verduleria.caja';     // servidor: clave de caja de este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
@@ -539,11 +558,13 @@ let ticket = [];
 let ticketAbierto = false;
 let MODO = 'local';        // 'servidor' cuando hay API
 let perfil = null;         // 'caja' (solo vende) o 'direccion' (carga todo); null = todavía no eligió
-let token = '';            // token del PIN (modo servidor)
-let desbloqueado = false;  // modo local: PIN tecleado en esta sesión
+let desbloqueado = false;  // modo local: PIN tecleado
 let enLinea = true;
-let cola = [];             // ventas pendientes de enviar al servidor
+let cola = [];             // ventas pendientes de enviar: {ruta, venta}
 let sincronizando = false;
+let sesion = '', cuenta = null, sucursales = [], sucursalId = '', claveCaja = '';
+let altaAbierta = true, entradaModo = 'entrar';
+let dashTodas = false, resumen = null;
 let modalActual = null, modalOpts = null;
 let pesa = null, cobro = null, pin = null, edicion = null, ultimaVenta = null;
 let corteDia = null;
@@ -566,8 +587,10 @@ function hoy(){ return fechaLocal(Date.now()); }
 function horaTxt(ts){ return new Date(ts).toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'}); }
 function fechaTxt(iso){ const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d).toLocaleDateString('es-MX', {weekday: 'long', day: 'numeric', month: 'long'}); }
 function prod(id){ return estado.productos.find(p => p.id === id); }
-function tienePin(){ return MODO === 'servidor' ? !!estado.negocio.tiene_pin : !!estado.negocio.pin; }
-function abierto(){ return MODO === 'servidor' ? !!token : desbloqueado; }
+function tienePin(){ return MODO === 'local' && !!estado.negocio.pin; }
+function abierto(){ return MODO === 'servidor' ? !!sesion : desbloqueado; }
+function rutaBase(){ return perfil === 'direccion' ? `/mi/sucursales/${sucursalId}` : `/c/${claveCaja}`; }
+function estadoVacio(){ return {negocio: {nombre: 'Verdulería al Peso', moneda: '$', ejemplo: false}, productos: [], movimientos: [], ventas: []}; }
 const ICONO_CAJA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2 11H5L3 9z"/><path d="M7 9l3-6m7 6l-3-6M9 13v4m6-4v4"/></svg>';
 const ICONO_DIR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M12 11l9-4M12 11L3 7m9 4v10"/></svg>';
 
@@ -585,9 +608,7 @@ function mayoreoTxt(p){ return `${dinero(p.precio_mayoreo)} desde ${cantidadTxt(
 
 /* Almacenamiento del navegador: siempre puede fallar (privado, bloqueado), por eso va entre try. */
 function leerLS(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
-function escribirLS(k, v){ try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
-function leerSS(k){ return leerLS(k) || ''; }
-function escribirSS(k, v){ escribirLS(k, v || null); }
+function escribirLS(k, v){ try { if (v === null || v === undefined || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
 function guardarPerfil(v){ perfil = v; escribirLS(CLAVE_PERFIL, v); }
 function cargarLocal(){
   try { const d = JSON.parse(leerLS(CLAVE) || 'null'); if (d && Array.isArray(d.productos) && d.negocio) return d; } catch (e) {}
@@ -602,9 +623,7 @@ function toast(msg){
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2800);
 }
 
-/* ================= Catálogo y datos de ejemplo ================= */
-/* [nombre, imagen (clave de ILUS o emoji), unidad, precio de referencia]. Los precios son solo un punto de partida:
-   el dueño los cambia en Dirección. En el servidor todo arranca apagado y el dueño enciende lo que vende. */
+/* ================= Catálogo y datos de ejemplo (modo local) ================= */
 const CATALOGO = [
   ['Plátano', 'platano', 'kg', 28], ['Plátano macho', '🍌', 'kg', 32], ['Manzana', 'manzana', 'kg', 55], ['Naranja', 'naranja', 'kg', 22],
   ['Limón', 'limon', 'kg', 42], ['Mandarina', '🍊', 'kg', 35], ['Toronja', 'toronja', 'kg', 28], ['Sandía', 'sandia', 'kg', 18],
@@ -621,7 +640,7 @@ const CATALOGO = [
   ['Col', 'col', 'pieza', 30], ['Apio', 'apio', 'pieza', 30], ['Rábano', 'rabano', 'manojo', 15], ['Jícama', 'jicama', 'kg', 25]
 ];
 function productosCatalogo(){
-  return CATALOGO.map(([nombre, img, unidad, precio]) => ({id: uid(), nombre, ilus: ILUS[img] ? img : 'canasta', emoji: ILUS[img] ? '' : img, foto: '', descripcion: '', unidad, precio, activo: false, declarado: 0, existencia: 0}));
+  return CATALOGO.map(([nombre, img, unidad, precio]) => ({id: uid(), nombre, ilus: ILUS[img] ? img : 'canasta', emoji: ILUS[img] ? '' : img, foto: '', descripcion: '', unidad, precio, precio_mayoreo: 0, mayoreo_desde: 0, activo: false, declarado: 0, existencia: 0}));
 }
 const EJEMPLO_STOCK = {'Plátano': [20, 14.5], 'Manzana': [15, 12], 'Melón': [25, 9], 'Sandía': [40, 31], 'Limón': [10, 1.6], 'Cilantro': [30, 22], 'Perejil': [20, 0], 'Aguacate': [12, 6.8], 'Jitomate': [18, 11], 'Cebolla': [15, 9.5]};
 function cantidadEjemplo(p, rnd){ return p.unidad === 'kg' ? r3(0.25 + Math.round(rnd() * 11) * 0.25) : 1 + Math.floor(rnd() * 3); }
@@ -633,7 +652,7 @@ function semilla(){
   const movimientos = productos.filter(p => p.declarado > 0).map((p, i) => ({
     id: uid(), ts: a(7, 30 + i), tipo: 'entrada', pid: p.id, nombre: p.nombre, cantidad: p.declarado, unidad: p.unidad, nota: 'Central de abastos'
   }));
-  const L = (nombre, cantidad) => { const p = productos.find(x => x.nombre === nombre); return {pid: p.id, nombre, cantidad, unidad: p.unidad, precio: p.precio, importe: r2(cantidad * p.precio)}; };
+  const L = (nombre, cantidad) => { const p = productos.find(x => x.nombre === nombre); return {pid: p.id, nombre, cantidad, unidad: p.unidad, precio: p.precio, importe: r2(cantidad * p.precio), mayoreo: false}; };
   const v1 = [L('Plátano', 1.25), L('Aguacate', 0.62), L('Limón', 0.5)];
   const v2 = [L('Sandía', 4.3), L('Cilantro', 2)];
   const hoyV = [
@@ -657,7 +676,7 @@ function ventasSemillaSemana(productos){
       for (let j = 0; j < k; j++) {
         const p = disponibles[Math.floor(rnd() * disponibles.length)]; if (usados.has(p.id)) continue; usados.add(p.id);
         const cantidad = cantidadEjemplo(p, rnd);
-        lineas.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio: p.precio, importe: r2(cantidad * p.precio)});
+        lineas.push({pid: p.id, nombre: p.nombre, cantidad, unidad: p.unidad, precio: p.precio, importe: r2(cantidad * p.precio), mayoreo: false});
       }
       const total = r2(lineas.reduce((a, l) => a + l.importe, 0)); const recibido = Math.ceil(total / 50) * 50;
       ventas.push({id: uid(), ts, lineas, total, recibido, cambio: r2(recibido - total)});
@@ -685,28 +704,55 @@ function vistaPerfil(){
     <button class="perfil" data-accion="a-direccion"><span class="perfil-icono">${ICONO_DIR}</span><b>Dirección</b><span>Productos, precios, stock, corte y dashboard.${tienePin() ? ' Pide el PIN.' : ' Sin PIN todavía: ponlo en Ajustes.'}</span></button>
   </div>`;
 }
+function camposCuentaHTML(reg){
+  return `${reg ? `<input id="in-nombre" placeholder="Tu nombre" required maxlength="40" autocomplete="name"><input id="in-verduleria" placeholder="Nombre de la verdulería" required maxlength="40">` : ''}
+    <input id="in-correo" type="email" placeholder="Correo" required autocomplete="username" inputmode="email">
+    <input id="in-contrasena" type="password" placeholder="Contraseña" required minlength="6" autocomplete="${reg ? 'new-password' : 'current-password'}">
+    ${reg && !altaAbierta ? `<input id="in-codigo" placeholder="Código de invitación" required autocomplete="off">` : ''}`;
+}
+function vistaEntrada(){
+  const reg = entradaModo === 'registro';
+  return `<div class="perfiles">
+    <h2>¿Quién usa este teléfono?</h2>
+    <p class="ayuda">Se recuerda para la próxima vez. Los teléfonos de la caja entran con la clave de su sucursal; el dueño, con su correo.</p>
+    <form class="perfil" data-form="entrar-caja"><span class="perfil-icono">${ICONO_CAJA}</span><b>Punto de venta</b><span>Pesar, cobrar y mandar el ticket. No cambia precios ni stock.</span>
+      <div class="entrada-form"><input id="in-clave" placeholder="Clave de caja (6 letras)" maxlength="8" required autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn primario" type="submit">Entrar a la caja</button></div></form>
+    <form class="perfil" data-form="${reg ? 'crear-cuenta' : 'entrar-cuenta'}"><span class="perfil-icono">${ICONO_DIR}</span><b>Dirección</b><span>${reg ? 'Crea la cuenta del dueño y su primera sucursal.' : 'Productos, precios, stock, corte y dashboard de todas las sucursales.'}</span>
+      <div class="entrada-form">${camposCuentaHTML(reg)}
+        <button class="btn primario" type="submit">${reg ? 'Crear cuenta' : 'Entrar'}</button>
+        <button class="btn borde" type="button" data-accion="entrada-modo" data-v="${reg ? 'entrar' : 'registro'}">${reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva'}</button>
+      </div></form>
+  </div>`;
+}
+
 function render(){
-  $('#nombre-negocio').textContent = estado.negocio.nombre || 'Mi verdulería';
   const app = $('#app');
+  const sel = $('#sel-sucursal');
   if (!perfil) {
-    $('#perfil-txt').textContent = 'Verdulería al Peso';
-    $('#nav').hidden = true; $('#a-direccion').hidden = true; $('#salir').hidden = true;
-    app.classList.remove('en-vender'); app.classList.add('caja');
-    $('#main').innerHTML = vistaPerfil();
+    $('#nombre-negocio').textContent = 'Verdulería al Peso';
+    $('#perfil-txt').textContent = MODO === 'servidor' ? 'Entrar' : 'Demo';
+    $('#nav').hidden = true; $('#a-direccion').hidden = true; $('#salir').hidden = true; sel.hidden = true;
+    app.classList.remove('en-vender', 'con-sel'); app.classList.add('caja');
+    $('#main').innerHTML = MODO === 'servidor' ? vistaEntrada() : vistaPerfil();
     return;
   }
   if (perfil !== 'direccion') vista = 'vender';
-  $('#perfil-txt').textContent = perfil === 'direccion' ? 'Dirección' : 'Punto de venta';
+  $('#nombre-negocio').textContent = estado.negocio.nombre || 'Mi verdulería';
+  $('#perfil-txt').textContent = perfil === 'direccion' ? 'Dirección' + (cuenta ? ' · ' + cuenta.nombre : '') : 'Punto de venta';
   $('#nav').hidden = perfil !== 'direccion';
   $('#a-direccion').hidden = perfil !== 'caja';
   $('#salir').hidden = perfil !== 'direccion';
+  $('#salir').textContent = MODO === 'servidor' ? 'Salir' : 'Salir a caja';
+  const conSel = perfil === 'direccion' && MODO === 'servidor';
+  sel.hidden = !conSel;
+  if (conSel) sel.innerHTML = sucursales.map(s => `<option value="${s.id}"${s.id === sucursalId ? ' selected' : ''}>${esc(s.nombre)}</option>`).join('') + '<option value="nueva">＋ Nueva sucursal…</option>';
+  app.classList.toggle('con-sel', conSel);
   app.classList.toggle('caja', perfil !== 'direccion');
   $$('#nav button').forEach(b => { if (b.dataset.vista === vista) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   app.classList.toggle('en-vender', vista === 'vender');
   const vistas = {vender: vistaVender, dashboard: vistaDashboard, direccion: vistaDireccion, corte: vistaCorte, ajustes: vistaAjustes};
   $('#main').innerHTML = vistas[vista]();
   if (vista === 'vender') renderTicket();
-  $('#main').scrollTop = 0;
 }
 
 /* ---- Vender ---- */
@@ -716,7 +762,7 @@ function avisoEjemplo(){
 function rejillaHTML(){
   const q = filtro.trim().toLowerCase();
   const lista = estado.productos.filter(p => p.activo && (!q || p.nombre.toLowerCase().includes(q)));
-  const cuenta = $('#cuenta'); if (cuenta) cuenta.textContent = lista.length + ' en venta';
+  const cuentaEl = $('#cuenta'); if (cuentaEl) cuentaEl.textContent = lista.length + ' en venta';
   if (!lista.length) return `<div class="vacio">${q ? 'Ningún producto se llama así.' : (perfil === 'direccion' ? 'No hay productos encendidos.<br><br><button class="btn primario" data-accion="ir" data-vista="direccion">Ir a Dirección a encender productos</button>' : 'No hay productos encendidos. Se encienden desde el perfil de Dirección.')}</div>`;
   return `<div class="rejilla">` + lista.map(p => {
     const n = nivel(p), ag = p.existencia <= 0;
@@ -733,9 +779,10 @@ function rejillaHTML(){
 }
 function vistaVender(){
   const enVenta = estado.productos.filter(p => p.activo).length;
+  const sinCarga = enVenta && !estado.ventas.length && estado.productos.every(p => p.existencia <= 0);
   return `<div class="vender">
     <div class="catalogo">
-      ${estado.negocio.ejemplo ? avisoEjemplo() : (enVenta && !estado.ventas.length && estado.productos.every(p => p.existencia <= 0) ? (perfil === 'direccion' ? `<div class="aviso"><span><b>Para empezar:</b> en Dirección carga el precio y el stock de hoy.</span><button class="btn chico borde" data-accion="ir" data-vista="direccion">Ir a Dirección</button></div>` : `<div class="aviso"><span>Todavía no hay precios ni stock cargados. Eso se hace desde el perfil de Dirección.</span></div>`) : '')}
+      ${estado.negocio.ejemplo ? avisoEjemplo() : (sinCarga ? (perfil === 'direccion' ? `<div class="aviso"><span><b>Para empezar:</b> en Dirección carga el precio y el stock de hoy.</span><button class="btn chico borde" data-accion="ir" data-vista="direccion">Ir a Dirección</button></div>` : `<div class="aviso"><span>Todavía no hay precios ni stock cargados. Eso se hace desde el perfil de Dirección.</span></div>`) : '')}
       <div class="buscar"><input id="buscar" type="search" placeholder="Buscar producto…" value="${esc(filtro)}" aria-label="Buscar producto" autocomplete="off"><span class="cuenta" id="cuenta">${enVenta} en venta</span></div>
       <div id="rejilla-wrap">${rejillaHTML()}</div>
     </div>
@@ -817,10 +864,15 @@ function diasAtras(n){
   for (let i = n - 1; i >= 0; i--) { const x = new Date(d); x.setDate(d.getDate() - i); out.push(fechaLocal(x.getTime())); }
   return out;
 }
-function resumenDia(iso){
+function resumenDeVentas(ventas, iso){
   const r = {iso, tickets: 0, total: 0, kg: 0};
-  estado.ventas.forEach(v => { if (fechaLocal(v.ts) !== iso) return; r.tickets++; r.total += v.total; v.lineas.forEach(l => { if (l.unidad === 'kg') r.kg += l.cantidad; }); });
+  ventas.forEach(v => { if (fechaLocal(v.ts) !== iso) return; r.tickets++; r.total += v.total; v.lineas.forEach(l => { if (l.unidad === 'kg') r.kg += l.cantidad; }); });
   r.total = r2(r.total); r.kg = r3(r.kg); return r;
+}
+function topDeVentas(ventas, desde){
+  const top = {};
+  ventas.forEach(v => { if (fechaLocal(v.ts) < desde) return; v.lineas.forEach(l => { const k = l.nombre; top[k] = top[k] || {nombre: l.nombre, unidad: l.unidad, cantidad: 0, importe: 0}; top[k].cantidad = r3(top[k].cantidad + l.cantidad); top[k].importe = r2(top[k].importe + l.importe); }); });
+  return Object.values(top).sort((a, b) => b.importe - a.importe).slice(0, 6);
 }
 function diaCorto(iso){ const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d).toLocaleDateString('es-MX', {weekday: 'short'}).replace('.', ''); }
 function pasoBonito(x){ if (x <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(x))); const f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
@@ -841,15 +893,25 @@ function graficaSemanaHTML(dias){
   });
   return `<svg viewBox="0 0 ${W} ${H}" class="grafica" role="img" aria-label="Ventas de los últimos 7 días">${grid}<line x1="${padL}" x2="${W - padR}" y1="${y(0)}" y2="${y(0)}" class="g-base"/>${barras}${ejes}</svg>`;
 }
+function tablaDiasHTML(dias){
+  return `<details class="tabla-datos"><summary>Ver como tabla</summary><div class="tabla-wrap"><table><thead><tr><th>Día</th><th class="num">Tickets</th><th class="num">Kilos</th><th class="num">Cobrado</th></tr></thead><tbody>${dias.map(d => `<tr><td style="text-transform:capitalize">${fechaTxt(d.iso)}</td><td class="num">${d.tickets}</td><td class="num">${trim3(d.kg)}</td><td class="num">${dinero(d.total)}</td></tr>`).join('')}</tbody></table></div></details>`;
+}
+function barrasTopHTML(topLista){
+  if (!topLista.length) return `<div class="vacio">Todavía no hay ventas.</div>`;
+  const maxTop = topLista[0].importe || 1;
+  return `<div class="barras-h">${topLista.map(t => `<div class="bh" data-tip="${esc(t.nombre)}: ${cantidadTxt(t.cantidad, t.unidad)} · ${dinero(t.importe)}"><span class="bh-nombre">${esc(t.nombre)}</span><span class="bh-pista"><i style="width:${Math.max(2, t.importe / maxTop * 100)}%"></i></span><span class="bh-valor">${dinero(t.importe)}</span></div>`).join('')}</div>`;
+}
+function selectorDashHTML(){
+  if (MODO !== 'servidor' || sucursales.length < 2) return '';
+  return `<div class="segmento dash-sel"><button type="button" data-accion="dash-modo" data-v="una" aria-pressed="${!dashTodas}">Esta sucursal</button><button type="button" data-accion="dash-modo" data-v="todas" aria-pressed="${dashTodas}">Todas</button></div>`;
+}
 function vistaDashboard(){
-  const dias = diasAtras(7).map(resumenDia);
+  if (dashTodas && resumen) return vistaDashboardTodas();
+  const dias = diasAtras(7).map(iso => resumenDeVentas(estado.ventas, iso));
   const hoyR = dias[6], ayerR = dias[5];
   const semana = r2(dias.reduce((s, d) => s + d.total, 0));
   const dif = ayerR.total > 0 ? Math.round((hoyR.total - ayerR.total) / ayerR.total * 100) : null;
-  const desde = dias[0].iso; const top = {};
-  estado.ventas.forEach(v => { if (fechaLocal(v.ts) < desde) return; v.lineas.forEach(l => { const k = l.nombre; top[k] = top[k] || {nombre: l.nombre, unidad: l.unidad, cantidad: 0, importe: 0}; top[k].cantidad = r3(top[k].cantidad + l.cantidad); top[k].importe = r2(top[k].importe + l.importe); }); });
-  const topLista = Object.values(top).sort((a, b) => b.importe - a.importe).slice(0, 6);
-  const maxTop = topLista.length ? topLista[0].importe : 1;
+  const topLista = topDeVentas(estado.ventas, dias[0].iso);
   const activos = estado.productos.filter(p => p.activo);
   const apagados = estado.productos.length - activos.length;
   const alertas = activos.filter(p => p.existencia <= 0).map(p => ({p, tipo: 'Agotado', clase: 'off'}))
@@ -857,7 +919,7 @@ function vistaDashboard(){
   const deltaTxt = dif === null ? (hoyR.total > 0 ? 'ayer sin ventas' : '') : (dif >= 0 ? '▲ ' : '▼ ') + Math.abs(dif) + ' % vs ayer';
   const apagadosTxt = apagados ? `${apagados} producto${apagados > 1 ? 's' : ''} apagado${apagados > 1 ? 's' : ''}.` : '';
   return `<div class="dashboard">
-    <div class="acciones"><h2>Dashboard</h2><span class="ayuda" style="text-transform:capitalize">${fechaTxt(hoyR.iso)}</span></div>
+    <div class="acciones"><h2>Dashboard</h2>${selectorDashHTML()}<span class="ayuda" style="text-transform:capitalize">${fechaTxt(hoyR.iso)}</span></div>
     <div class="tiles">
       <div class="tile"><small>Vendido hoy</small><b>${dinero(hoyR.total)}</b><span class="delta">${deltaTxt}</span></div>
       <div class="tile"><small>Tickets hoy</small><b>${hoyR.tickets}</b><span class="delta">${hoyR.tickets ? 'promedio ' + dinero(hoyR.total / hoyR.tickets) : ''}</span></div>
@@ -865,9 +927,37 @@ function vistaDashboard(){
       <div class="tile"><small>Últimos 7 días</small><b>${dinero(semana)}</b><span class="delta">${dias.reduce((s, d) => s + d.tickets, 0)} tickets</span></div>
     </div>
     <div class="dash-grid">
-      <div class="seccion ancha"><h3>Ventas por día</h3>${dias.some(d => d.total > 0) ? graficaSemanaHTML(dias) + `<details class="tabla-datos"><summary>Ver como tabla</summary><div class="tabla-wrap"><table><thead><tr><th>Día</th><th class="num">Tickets</th><th class="num">Kilos</th><th class="num">Cobrado</th></tr></thead><tbody>${dias.map(d => `<tr><td style="text-transform:capitalize">${fechaTxt(d.iso)}</td><td class="num">${d.tickets}</td><td class="num">${trim3(d.kg)}</td><td class="num">${dinero(d.total)}</td></tr>`).join('')}</tbody></table></div></details>` : `<div class="vacio">Sin ventas en los últimos 7 días.</div>`}</div>
-      <div class="seccion"><h3>Lo que más se vende <span class="muted">· 7 días</span></h3>${topLista.length ? `<div class="barras-h">${topLista.map(t => `<div class="bh" data-tip="${esc(t.nombre)}: ${cantidadTxt(t.cantidad, t.unidad)} · ${dinero(t.importe)}"><span class="bh-nombre">${esc(t.nombre)}</span><span class="bh-pista"><i style="width:${Math.max(2, t.importe / maxTop * 100)}%"></i></span><span class="bh-valor">${dinero(t.importe)}</span></div>`).join('')}</div>` : `<div class="vacio">Todavía no hay ventas.</div>`}</div>
+      <div class="seccion ancha"><h3>Ventas por día</h3>${dias.some(d => d.total > 0) ? graficaSemanaHTML(dias) + tablaDiasHTML(dias) : `<div class="vacio">Sin ventas en los últimos 7 días.</div>`}</div>
+      <div class="seccion"><h3>Lo que más se vende <span class="muted">· 7 días</span></h3>${barrasTopHTML(topLista)}</div>
       <div class="seccion"><h3>Por reponer <span class="muted">· ${alertas.length}</span></h3>${alertas.length ? alertas.map(a => `<div class="alerta-stock" data-banda="${a.clase}">${ilusDe(a.p, 'chica')}<div class="alerta-info"><b>${esc(a.p.nombre)}</b><span class="nivel"><span class="barra-nivel"><i style="width:${nivel(a.p)}%"></i></span><b>${nivel(a.p)}</b></span></div><span class="estado-chip ${a.clase}">${a.tipo === 'Agotado' ? '⛔' : '⚠'} ${a.tipo} · ${cantidadTxt(Math.max(0, a.p.existencia), a.p.unidad)}</span><button class="btn chico primario" data-accion="entrada" data-id="${a.p.id}">+ Entrada</button></div>`).join('') : `<div class="vacio">Todo con existencia.</div>`}${apagadosTxt ? `<p class="ayuda">${apagadosTxt}</p>` : ''}</div>
+    </div>
+  </div>`;
+}
+function vistaDashboardTodas(){
+  const isos = diasAtras(7);
+  const porSuc = resumen.sucursales.map(s => {
+    const res = isos.map(iso => resumenDeVentas(s.ventas, iso));
+    return {s, res, hoy: res[6], ayer: res[5], semana: r2(res.reduce((a, d) => a + d.total, 0)), tickets7: res.reduce((a, d) => a + d.tickets, 0)};
+  });
+  const tot = isos.map((iso, i) => ({iso, tickets: porSuc.reduce((a, x) => a + x.res[i].tickets, 0), total: r2(porSuc.reduce((a, x) => a + x.res[i].total, 0)), kg: r3(porSuc.reduce((a, x) => a + x.res[i].kg, 0))}));
+  const hoyT = tot[6], ayerT = tot[5];
+  const dif = ayerT.total > 0 ? Math.round((hoyT.total - ayerT.total) / ayerT.total * 100) : null;
+  const todasVentas = [].concat(...resumen.sucursales.map(s => s.ventas));
+  const topLista = topDeVentas(todasVentas, isos[0]);
+  const alertasN = resumen.sucursales.reduce((a, s) => a + s.alertas.length, 0);
+  return `<div class="dashboard">
+    <div class="acciones"><h2>Dashboard</h2>${selectorDashHTML()}<span class="ayuda" style="text-transform:capitalize">${fechaTxt(hoyT.iso)} · ${resumen.sucursales.length} sucursales</span></div>
+    <div class="tiles">
+      <div class="tile"><small>Vendido hoy (todas)</small><b>${dinero(hoyT.total)}</b><span class="delta">${dif === null ? '' : (dif >= 0 ? '▲ ' : '▼ ') + Math.abs(dif) + ' % vs ayer'}</span></div>
+      <div class="tile"><small>Tickets hoy</small><b>${hoyT.tickets}</b><span class="delta">${hoyT.tickets ? 'promedio ' + dinero(hoyT.total / hoyT.tickets) : ''}</span></div>
+      <div class="tile"><small>Kilos hoy</small><b>${trim3(hoyT.kg)}</b><span class="delta"></span></div>
+      <div class="tile"><small>Últimos 7 días</small><b>${dinero(r2(tot.reduce((a, d) => a + d.total, 0)))}</b><span class="delta">${tot.reduce((a, d) => a + d.tickets, 0)} tickets</span></div>
+    </div>
+    <div class="seccion"><h3>Por sucursal</h3><div class="tabla-wrap"><table><thead><tr><th>Sucursal</th><th class="num">Hoy</th><th class="num">Ayer</th><th class="num">7 días</th><th class="num">Tickets 7d</th><th class="num">Por reponer</th></tr></thead><tbody>${porSuc.map(x => `<tr><td><button class="enlace" data-accion="sucursal-ir" data-id="${x.s.id}">${esc(x.s.nombre)}</button></td><td class="num">${dinero(x.hoy.total)}</td><td class="num">${dinero(x.ayer.total)}</td><td class="num">${dinero(x.semana)}</td><td class="num">${x.tickets7}</td><td class="num">${x.s.alertas.length}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="dash-grid">
+      <div class="seccion ancha"><h3>Ventas por día · todas</h3>${tot.some(d => d.total > 0) ? graficaSemanaHTML(tot) + tablaDiasHTML(tot) : `<div class="vacio">Sin ventas en los últimos 7 días.</div>`}</div>
+      <div class="seccion"><h3>Lo que más se vende <span class="muted">· todas · 7 días</span></h3>${barrasTopHTML(topLista)}</div>
+      <div class="seccion"><h3>Por reponer <span class="muted">· ${alertasN}</span></h3>${alertasN ? resumen.sucursales.filter(s => s.alertas.length).map(s => `<h4 class="sub-suc">${esc(s.nombre)}</h4>` + s.alertas.map(a => `<div class="alerta-stock" data-banda="${a.agotado ? 'off' : 'bad'}"><span></span><div class="alerta-info"><b>${esc(a.nombre)}</b><span class="nivel"><span class="barra-nivel"><i style="width:${a.nivel}%"></i></span><b>${a.nivel}</b></span></div><span class="estado-chip ${a.agotado ? 'off' : 'bad'}">${a.agotado ? '⛔ Agotado' : '⚠ Bajo'} · ${cantidadTxt(Math.max(0, a.existencia), a.unidad)}</span><span></span></div>`).join('')).join('') : `<div class="vacio">Todo con existencia en todas las sucursales.</div>`}</div>
     </div>
   </div>`;
 }
@@ -902,19 +992,9 @@ function vistaCorte(){
 }
 
 /* ---- Ajustes ---- */
-function vistaAjustes(){
-  const n = estado.negocio; const hayPin = tienePin();
-  return `<div class="ajustes">
-    <h2>Ajustes</h2>
-    <form class="seccion" data-form="negocio"><h3>Negocio</h3>
-      <div class="campos-2"><div class="campo"><label for="aj-nombre">Nombre</label><input id="aj-nombre" value="${esc(n.nombre)}" maxlength="40"></div><div class="campo"><label for="aj-moneda">Moneda</label><input id="aj-moneda" value="${esc(n.moneda)}" maxlength="4"></div></div>
-      <div class="campo"><label for="aj-pin">${hayPin ? 'Cambiar el PIN de dirección (4 dígitos, vacío = se queda igual)' : 'PIN de dirección (4 dígitos, vacío = sin PIN)'}</label><input id="aj-pin" inputmode="numeric" maxlength="4" value="" autocomplete="off" placeholder="${hayPin ? '••••' : ''}"></div>
-      ${hayPin ? `<label class="casilla"><input type="checkbox" id="aj-quitar-pin"> Quitar el PIN</label>` : ''}
-      <p class="ayuda">${hayPin ? 'El PIN se pide al entrar al perfil de Dirección. El punto de venta no lo necesita.' : 'Sin PIN, cualquiera con un teléfono puede entrar a Dirección y cambiar precios. Ponlo antes de dejar el sistema en el puesto.'}</p>
-      <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
-    </form>
-    <div class="seccion"><h3>Respaldo</h3>
-      <p>${MODO === 'servidor' ? 'Los datos viven en el servidor. Este respaldo es una copia de los productos y de los últimos 60 días, por si quieres guardarla o pasarla a otra instalación.' : 'Los datos viven solo en este navegador. Copia el respaldo de vez en cuando y guárdalo en tus notas o en un correo a ti mismo.'}</p>
+function respaldoHTML(){
+  return `<div class="seccion"><h3>Respaldo</h3>
+      <p>${MODO === 'servidor' ? 'Los datos viven en el servidor. Este respaldo es una copia de los productos de esta sucursal y de sus últimos 60 días, por si quieres guardarla o pasarla a otra sucursal.' : 'Los datos viven solo en este navegador. Copia el respaldo de vez en cuando y guárdalo en tus notas o en un correo a ti mismo.'}</p>
       <div class="botonera"><button class="btn borde" data-accion="respaldo-copiar">Copiar respaldo</button><label class="btn borde archivo">Cargar archivo<input type="file" id="aj-archivo" accept="application/json,.json,.txt" hidden></label></div>
       <textarea id="aj-respaldo" class="plano" rows="4" placeholder="Pega aquí un respaldo para restaurarlo" spellcheck="false"></textarea>
       <div class="botonera"><button class="btn" data-accion="respaldo-restaurar">Restaurar desde el texto</button></div>
@@ -922,9 +1002,50 @@ function vistaAjustes(){
     <div class="seccion"><h3>Datos</h3>
       <p>«Datos de ejemplo» sirve para enseñar el sistema con una semana de ventas inventadas. «Empezar en limpio» deja los productos y precios, pero borra ventas y existencias.</p>
       <div class="botonera"><button class="btn borde" data-accion="ejemplo-cargar">Cargar datos de ejemplo</button><button class="btn borde" data-accion="empezar-limpio">Empezar en limpio</button><button class="btn borde peligro" data-accion="borrar-todo">Borrar todo</button></div>
+    </div>`;
+}
+function enlaceCaja(clave){ return location.origin + location.pathname + '?caja=' + clave; }
+function vistaAjustes(){
+  const n = estado.negocio;
+  if (MODO !== 'servidor') {
+    const hayPin = tienePin();
+    return `<div class="ajustes">
+    <h2>Ajustes</h2>
+    <form class="seccion" data-form="negocio"><h3>Negocio</h3>
+      <div class="campos-2"><div class="campo"><label for="aj-nombre">Nombre</label><input id="aj-nombre" value="${esc(n.nombre)}" maxlength="40"></div><div class="campo"><label for="aj-moneda">Moneda</label><input id="aj-moneda" value="${esc(n.moneda)}" maxlength="4"></div></div>
+      <div class="campo"><label for="aj-pin">${hayPin ? 'Cambiar el PIN de dirección (4 dígitos, vacío = se queda igual)' : 'PIN de dirección (4 dígitos, vacío = sin PIN)'}</label><input id="aj-pin" inputmode="numeric" maxlength="4" value="" autocomplete="off" placeholder="${hayPin ? '••••' : ''}"></div>
+      ${hayPin ? `<label class="casilla"><input type="checkbox" id="aj-quitar-pin"> Quitar el PIN</label>` : ''}
+      <p class="ayuda">${hayPin ? 'El PIN se pide al entrar al perfil de Dirección. El punto de venta no lo necesita.' : 'Sin PIN, cualquiera con un teléfono puede entrar a Dirección y cambiar precios.'}</p>
+      <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
+    </form>
+    ${respaldoHTML()}
+  </div>`;
+  }
+  return `<div class="ajustes">
+    <h2>Ajustes</h2>
+    <form class="seccion" data-form="sucursal"><h3>Esta sucursal</h3>
+      <div class="campos-2"><div class="campo"><label for="aj-nombre">Nombre</label><input id="aj-nombre" value="${esc(n.nombre)}" maxlength="40"></div><div class="campo"><label for="aj-moneda">Moneda</label><input id="aj-moneda" value="${esc(n.moneda)}" maxlength="4"></div></div>
+      <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
+    </form>
+    <div class="seccion"><h3>Clave de caja</h3>
+      <p>Con esta clave entran los teléfonos del punto de venta de <b>${esc(n.nombre)}</b>. Mándales el enlace o díctales la clave; no necesitan cuenta.</p>
+      <div class="clave-caja"><b>${esc(n.clave_caja || '')}</b><button class="btn chico borde" data-accion="clave-copiar">Copiar enlace</button><button class="btn chico borde peligro" data-accion="clave-regenerar">Cambiar clave</button></div>
+      <p class="ayuda">Si la cambias, los teléfonos con la clave vieja dejan de vender hasta que escriban la nueva.</p>
     </div>
+    <div class="seccion"><h3>Sucursales</h3>
+      <div class="lista-suc">${sucursales.map(s => `<div class="suc-fila${s.id === sucursalId ? ' actual' : ''}"><b>${esc(s.nombre)}</b><span class="muted">clave ${esc(s.clave_caja)}</span>${s.id === sucursalId ? '<span class="estado-chip">Abierta</span>' : `<button class="btn chico borde" data-accion="sucursal-ir" data-id="${s.id}">Abrir</button>`}</div>`).join('')}</div>
+      <div class="botonera"><button class="btn borde" data-accion="sucursal-nueva">Nueva sucursal</button>${sucursales.length > 1 ? `<button class="btn borde peligro" data-accion="sucursal-eliminar">Eliminar esta sucursal</button>` : ''}</div>
+    </div>
+    <form class="seccion" data-form="cuenta"><h3>Mi cuenta</h3>
+      <div class="campos-2"><div class="campo"><label for="cu-nombre">Nombre</label><input id="cu-nombre" value="${esc(cuenta ? cuenta.nombre : '')}" maxlength="40"></div><div class="campo"><label for="cu-correo">Correo</label><input id="cu-correo" type="email" value="${esc(cuenta ? cuenta.correo : '')}" maxlength="80" autocomplete="username"></div></div>
+      <div class="campos-2"><div class="campo"><label for="cu-actual">Contraseña actual</label><input id="cu-actual" type="password" autocomplete="current-password"></div><div class="campo"><label for="cu-nueva">Contraseña nueva</label><input id="cu-nueva" type="password" minlength="6" autocomplete="new-password"></div></div>
+      <p class="ayuda">Deja las contraseñas vacías si solo cambias nombre o correo.</p>
+      <div class="botonera"><button class="btn primario" type="submit">Guardar</button></div>
+    </form>
+    ${respaldoHTML()}
   </div>`;
 }
+
 /* ================= Modales ================= */
 function abrirModal(tipo, opts){
   modalActual = tipo; modalOpts = opts || null;
@@ -936,7 +1057,7 @@ function abrirModal(tipo, opts){
 }
 function pintarModal(){
   const h = {
-    pesar: pesarHTML, cobrar: cobrarHTML, pin: pinHTML, editar: editarHTML, 'venta-hecha': ventaHechaHTML,
+    pesar: pesarHTML, cobrar: cobrarHTML, pin: pinHTML, login: loginHTML, editar: editarHTML, 'venta-hecha': ventaHechaHTML, 'sucursal-nueva': sucursalNuevaHTML,
     entrada: () => entradaHTML(modalOpts && modalOpts.pid),
     ajustar: () => ajustarHTML(modalOpts.pid),
     confirmar: () => confirmHTML(modalOpts)
@@ -1065,28 +1186,32 @@ function ventaHechaHTML(){
     <button type="button" class="btn primario grande" data-accion="cerrar">Nueva venta</button></div>`;
 }
 
-/* ---- PIN ---- */
+/* ---- PIN (modo local) y entrada del dueño (servidor) ---- */
 function pinHTML(){
   return `<h2>PIN de dirección</h2><p class="sub">Escribe la clave del dueño para entrar a Dirección.</p>
     <div class="pin-puntos${pin.mal ? ' mal' : ''}">${[0, 1, 2, 3].map(i => `<i class="${pin.texto.length > i ? 'lleno' : ''}"></i>`).join('')}</div>
     ${tecladoHTML()}
     <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button></div>`;
 }
-async function verificarPin(){
-  const dado = pin.texto;
-  if (MODO === 'local') { if (dado === estado.negocio.pin) { desbloqueado = true; pinCorrecto(); } else pinMal(); return; }
-  const r = await llamar('POST', '/pin', {pin: dado});
-  if (r.status === 0) { marcarRed(false); toast('Sin señal. Inténtalo otra vez.'); pin.texto = ''; if (modalActual === 'pin') pintarModal(); return; }
-  marcarRed(true);
-  if (r.ok) { token = (r.datos && r.datos.token) || ''; escribirSS(CLAVE_TOKEN, token); pinCorrecto(); } else pinMal();
+function verificarPin(){
+  if (pin.texto === estado.negocio.pin) { desbloqueado = true; const p = pin; cerrarModal(); guardarPerfil('direccion'); ir(p.destino); }
+  else { pin.mal = true; pin.texto = ''; toast('PIN incorrecto'); if (modalActual === 'pin') pintarModal(); }
 }
-function pinCorrecto(){
-  const p = pin; cerrarModal();
-  if (p.aDireccion) guardarPerfil('direccion');
-  if (p.reintentar) ejecutar(p.reintentar).then(ok => { if (ok) { render(); toast('Guardado'); } });
-  else ir(p.destino);
+function loginHTML(){
+  const reg = entradaModo === 'registro';
+  return `<h2>${reg ? 'Crear cuenta de dueño' : 'Entrar a Dirección'}</h2><p class="sub">${reg ? 'La cuenta puede tener varias sucursales.' : 'Con el correo y la contraseña del dueño.'}</p>
+    <form data-form="${reg ? 'crear-cuenta' : 'entrar-cuenta'}"><div class="entrada-form">${camposCuentaHTML(reg)}</div>
+      <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="submit" class="btn primario">${reg ? 'Crear cuenta' : 'Entrar'}</button></div>
+      <div class="botonera"><button type="button" class="btn chico borde" data-accion="entrada-modo" data-v="${reg ? 'entrar' : 'registro'}">${reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva'}</button>${perfil === 'caja' ? `<button type="button" class="btn chico borde" data-accion="cambiar-caja">Cambiar de caja</button>` : ''}</div></form>`;
 }
-function pinMal(){ pin.mal = true; pin.texto = ''; toast('PIN incorrecto'); if (modalActual === 'pin') pintarModal(); }
+function sucursalNuevaHTML(){
+  return `<h2>Nueva sucursal</h2><p class="sub">Tendrá su propia clave de caja, sus precios y su stock.</p>
+    <form data-form="sucursal-nueva">
+      <div class="campo"><label for="su-nombre">Nombre</label><input id="su-nombre" required maxlength="40" placeholder="Mercado Aldama"></div>
+      <div class="campo"><label for="su-copiar">Productos</label><select id="su-copiar"><option value="">Catálogo básico, todo apagado</option>${sucursales.map(s => `<option value="${s.id}">Copiar productos y precios de ${esc(s.nombre)}</option>`).join('')}</select></div>
+      <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="submit" class="btn primario">Crear</button></div>
+    </form>`;
+}
 
 /* ---- Entrada ---- */
 function entradaHTML(pid){
@@ -1113,6 +1238,7 @@ function ajustarHTML(pid){
 }
 
 /* ---- Editar / nuevo ---- */
+const EMOJIS_SUGERIDOS = ['🍌','🍎','🍊','🍋','🍉','🍈','🍇','🍓','🍍','🥭','🍐','🍑','🍒','🥝','🥥','🫐','🍅','🧅','🥔','🥕','🌶️','🫑','🥬','🥒','🌽','🥦','🧄','🍠','🍄','🌿','🥜','🫛','🍆','🌵'];
 function abrirEditar(id){
   const p = id ? prod(id) : null;
   edicion = p ? {id: p.id, nombre: p.nombre, descripcion: p.descripcion || '', unidad: p.unidad, precio: p.precio, precio_mayoreo: p.precio_mayoreo || '', mayoreo_desde: p.mayoreo_desde || '', ilus: p.ilus, emoji: p.emoji || '', foto: p.foto || ''}
@@ -1125,7 +1251,6 @@ function sincronizarEdicion(){
   if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
   if (may) edicion.precio_mayoreo = may.value; if (desde) edicion.mayoreo_desde = desde.value;
 }
-const EMOJIS_SUGERIDOS = ['🍌','🍎','🍊','🍋','🍉','🍈','🍇','🍓','🍍','🥭','🍐','🍑','🍒','🥝','🥥','🫐','🍅','🧅','🥔','🥕','🌶️','🫑','🥬','🥒','🌽','🥦','🧄','🍠','🍄','🌿','🥜','🫛','🍆','🌵'];
 function editarHTML(){
   const e = edicion;
   let imagen;
@@ -1185,9 +1310,9 @@ function confirmHTML(o){
     <div class="botonera"><button type="button" class="btn borde" data-accion="cerrar">Cancelar</button><button type="button" class="btn ${o.peligro ? 'borde peligro' : 'primario'}" data-accion="${o.accion}">${esc(o.boton)}</button></div>`;
 }
 
-/* ================= Servidor: llamadas, cola y sincronía ================= */
+/* ================= Servidor: llamadas, sesión, cola y sincronía ================= */
 async function llamar(metodo, ruta, cuerpo){
-  const cab = {'Content-Type': 'application/json'}; if (token) cab['X-Token'] = token;
+  const cab = {'Content-Type': 'application/json'}; if (sesion) cab['X-Sesion'] = sesion;
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     const r = await fetch(API + ruta, {method: metodo, headers: cab, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo), signal: ctrl.signal, cache: 'no-store'});
@@ -1200,7 +1325,7 @@ function marcarRed(ok){ enLinea = ok; pintarRed(); }
 function pintarRed(){
   const el = $('#red'); if (!el) return;
   const n = cola.length;
-  if (MODO !== 'servidor' || (enLinea && !n)) { el.hidden = true; return; }
+  if (MODO !== 'servidor' || !perfil || (enLinea && !n)) { el.hidden = true; return; }
   el.hidden = false;
   el.textContent = !enLinea ? (n ? `Sin señal · ${n} ${n === 1 ? 'venta guardada' : 'ventas guardadas'} en este teléfono, se envían al volver la señal` : 'Sin señal: las ventas se guardan en este teléfono y se envían al volver la señal')
                             : `Enviando ${n} ${n === 1 ? 'venta pendiente' : 'ventas pendientes'}…`;
@@ -1208,67 +1333,128 @@ function pintarRed(){
 }
 function adoptar(datos){
   if (!datos || !Array.isArray(datos.productos)) return;
-  if (typeof datos.token === 'string') { token = datos.token; escribirSS(CLAVE_TOKEN, token); }
   estado = datos; migrar();
-  cola.forEach(v => { if (!estado.ventas.some(x => x.id === v.id)) aplicarVentaLocal(v); });
+  if (Array.isArray(datos.sucursales)) sucursales = datos.sucursales;
+  const base = rutaBase();
+  cola.forEach(x => { if (x.ruta.startsWith(base + '/') && !estado.ventas.some(v => v.id === x.venta.id)) aplicarVentaLocal(x.venta); });
   guardar();
 }
-/* Operación de dirección o ajustes. op = {metodo, ruta, cuerpo, local()}; devuelve true si quedó hecha. */
+function cerrarSesion(msg){
+  sesion = ''; escribirLS(CLAVE_SESION, null); cuenta = null; sucursales = []; dashTodas = false; resumen = null;
+  guardarPerfil(null); estado = estadoVacio(); ticket = []; cerrarModal(); render(); pintarRed();
+  if (msg) toast(msg);
+}
+function perderCaja(msg){
+  claveCaja = ''; escribirLS(CLAVE_CAJA, null); guardarPerfil(null); estado = estadoVacio(); cerrarModal(); render(); pintarRed();
+  if (msg) toast(msg);
+}
+/* Operación de dirección o ajustes. op = {metodo, ruta, cuerpo, absoluta, local()}; devuelve los datos (o true) si quedó hecha. */
 async function ejecutar(op){
-  if (MODO === 'local') { const err = op.local(); if (err) { toast(err); return false; } guardar(); return true; }
-  const r = await llamar(op.metodo || 'POST', op.ruta, op.cuerpo);
+  if (MODO === 'local') { const err = op.local ? op.local() : null; if (err) { toast(err); return false; } guardar(); return true; }
+  const r = await llamar(op.metodo || 'POST', (op.absoluta ? '' : rutaBase()) + op.ruta, op.cuerpo);
   if (r.status === 0) { marcarRed(false); toast('Sin señal. Inténtalo otra vez cuando vuelva.'); return false; }
   marcarRed(true);
-  if (r.status === 401) { token = ''; escribirSS(CLAVE_TOKEN, ''); pin = {texto: '', destino: vista, mal: false, reintentar: op}; abrirModal('pin'); return false; }
+  if (r.status === 401) { cerrarSesion('Vuelve a entrar con tu correo y contraseña'); return false; }
+  if (r.status === 404 && perfil === 'caja' && !op.absoluta) { perderCaja('Esa clave de caja ya no vale. Pide la nueva a dirección.'); return false; }
   if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo guardar'); return false; }
-  adoptar(r.datos); return true;
+  if (r.datos && Array.isArray(r.datos.productos)) adoptar(r.datos);
+  else if (r.datos && Array.isArray(r.datos.sucursales)) sucursales = r.datos.sucursales;
+  return r.datos || true;
 }
-function encolar(v){
-  if (!cola.some(x => x.id === v.id)) { cola.push(v); escribirLS(CLAVE_COLA, JSON.stringify(cola)); }
+function encolar(ruta, venta){
+  if (!cola.some(x => x.venta.id === venta.id)) { cola.push({ruta, venta}); escribirLS(CLAVE_COLA, JSON.stringify(cola)); }
   pintarRed();
 }
-async function enviarVenta(v){
-  const r = await llamar('POST', '/ventas', v);
-  if (r.status === 0) { marcarRed(false); encolar(v); return false; }
+async function enviarVenta(venta){
+  const ruta = rutaBase() + '/ventas';
+  const r = await llamar('POST', ruta, venta);
+  if (r.status === 0) { marcarRed(false); encolar(ruta, venta); return false; }
   marcarRed(true);
   if (r.ok) { adoptar(r.datos); if (!modalActual) render(); return true; }
+  if (r.status === 404 && perfil === 'caja') { encolar(ruta, venta); perderCaja('Esa clave de caja ya no vale. La venta queda guardada en este teléfono.'); return false; }
+  if (r.status === 401) { encolar(ruta, venta); cerrarSesion('Vuelve a entrar; la venta queda guardada en este teléfono.'); return false; }
   toast((r.datos && r.datos.error) || 'El servidor rechazó la venta'); return false;
 }
 async function enviarCola(){
   if (MODO !== 'servidor' || !cola.length || sincronizando) return;
   sincronizando = true; let cambio = false;
   try {
-    while (cola.length) {
-      const v = cola[0]; const r = await llamar('POST', '/ventas', v);
+    for (let i = 0; i < cola.length;) {
+      const x = cola[i]; const r = await llamar('POST', x.ruta, x.venta);
       if (r.status === 0) { marcarRed(false); break; }
       marcarRed(true);
-      cola.shift(); escribirLS(CLAVE_COLA, JSON.stringify(cola)); cambio = true;
-      if (r.ok) adoptar(r.datos); else toast('Una venta pendiente fue rechazada: ' + ((r.datos && r.datos.error) || ''));
+      if (r.status === 401 || r.status === 404) { i++; continue; }   // se reintenta cuando el dueño entre o llegue la clave nueva
+      cola.splice(i, 1); escribirLS(CLAVE_COLA, JSON.stringify(cola)); cambio = true;
+      if (r.ok) { if (x.ruta.startsWith(rutaBase() + '/')) adoptar(r.datos); }
+      else toast('Una venta pendiente fue rechazada: ' + ((r.datos && r.datos.error) || ''));
     }
   } finally {
     sincronizando = false; pintarRed();
-    if (cambio && !modalActual && vista !== 'direccion' && vista !== 'ajustes') render();
+    if (cambio && !modalActual && perfil && vista !== 'direccion' && vista !== 'ajustes') render();
   }
 }
 async function sincronizar(){
-  if (MODO !== 'servidor' || document.hidden || modalActual || vista === 'direccion' || vista === 'ajustes' || sincronizando) return;
-  const r = await llamar('GET', '/estado');
+  if (MODO !== 'servidor' || !perfil || document.hidden || modalActual || vista === 'direccion' || vista === 'ajustes' || sincronizando) return;
+  if (perfil === 'direccion' && !sucursalId) return;
+  const r = await llamar('GET', rutaBase() + '/estado');
   if (r.status === 0) { marcarRed(false); return; }
   marcarRed(true);
   if (r.ok) { const antes = JSON.stringify(estado); adoptar(r.datos); if (JSON.stringify(estado) !== antes) render(); }
+  else if (r.status === 401) cerrarSesion('Vuelve a entrar con tu correo y contraseña');
+  else if (r.status === 404 && perfil === 'caja') perderCaja('Esa clave de caja ya no vale. Pide la nueva a dirección.');
+}
+async function cargarCuenta(){
+  const r = await llamar('GET', '/mi');
+  if (r.ok && r.datos) {
+    cuenta = r.datos.cuenta; sucursales = r.datos.sucursales || [];
+    if (!sucursales.some(s => s.id === sucursalId)) sucursalId = sucursales[0] ? sucursales[0].id : '';
+    escribirLS(CLAVE_SUC, sucursalId);
+    return !!sucursalId;
+  }
+  if (r.status === 401) { sesion = ''; escribirLS(CLAVE_SESION, null); }
+  return false;
+}
+async function cargarEstadoSucursal(){
+  const r = await llamar('GET', `/mi/sucursales/${sucursalId}/estado`);
+  if (r.ok) { adoptar(r.datos); return true; }
+  return false;
+}
+async function cargarEstadoCaja(){
+  const r = await llamar('GET', `/c/${claveCaja}/estado`);
+  if (r.ok) { adoptar(r.datos); return true; }
+  if (r.status === 404) { claveCaja = ''; escribirLS(CLAVE_CAJA, null); toast('Esa clave de caja ya no vale. Pide la nueva a dirección.'); }
+  return false;
+}
+async function cargarResumen(){
+  const r = await llamar('GET', '/mi/resumen');
+  if (r.ok) { resumen = r.datos; return true; }
+  if (r.status === 401) cerrarSesion('Vuelve a entrar con tu correo y contraseña'); else toast('No se pudo cargar el resumen');
+  return false;
+}
+function iniciarSesionCon(datos){
+  sesion = datos.sesion || ''; escribirLS(CLAVE_SESION, sesion);
+  cuenta = datos.cuenta; sucursales = datos.sucursales || [];
+  if (!sucursales.some(s => s.id === sucursalId)) sucursalId = sucursales[0] ? sucursales[0].id : '';
+  escribirLS(CLAVE_SUC, sucursalId);
+}
+async function cambiarSucursal(id){
+  if (!sucursales.some(s => s.id === id)) return;
+  sucursalId = id; escribirLS(CLAVE_SUC, id); dashTodas = false;
+  const ok = await cargarEstadoSucursal();
+  if (ok) { ticket = []; render(); snapshot(); }
 }
 
 /* ================= Navegación ================= */
 function entrarDireccion(destino){
-  if (tienePin() && !abierto()) { pin = {texto: '', destino, mal: false, aDireccion: true}; abrirModal('pin'); return; }
+  if (MODO === 'servidor') { entradaModo = 'entrar'; abrirModal('login'); return; }
+  if (tienePin() && !abierto()) { pin = {texto: '', destino, mal: false}; abrirModal('pin'); return; }
   guardarPerfil('direccion'); ir(destino);
 }
 function ir(v){
   if (!VISTAS.includes(v)) v = 'vender';
   if (v !== 'vender' && perfil !== 'direccion') { entrarDireccion(v); return; }
-  if (v !== 'vender' && tienePin() && !abierto()) { pin = {texto: '', destino: v, mal: false}; abrirModal('pin'); return; }
   vista = v;
-  try { history.replaceState(null, '', '#' + v); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + '#' + v); } catch (e) {}
   render(); $('#main').scrollTop = 0; snapshot();
 }
 function snapshot(){
@@ -1292,7 +1478,12 @@ const acciones = {
   ir: d => ir(d.vista),
   'perfil-caja': () => { guardarPerfil('caja'); vista = 'vender'; render(); snapshot(); },
   'a-direccion': () => entrarDireccion('dashboard'),
-  salir: () => { token = ''; escribirSS(CLAVE_TOKEN, ''); desbloqueado = false; guardarPerfil('caja'); vista = 'vender'; render(); snapshot(); toast('Este teléfono queda como punto de venta'); },
+  'entrada-modo': d => { entradaModo = d.v; if (modalActual === 'login') pintarModal(); else render(); },
+  'cambiar-caja': () => perderCaja('Escribe la clave de la caja que quieras abrir'),
+  salir: async () => {
+    if (MODO === 'servidor') { if (sesion) llamar('DELETE', '/sesion'); cerrarSesion('Sesión cerrada'); return; }
+    desbloqueado = false; guardarPerfil('caja'); vista = 'vender'; render(); snapshot(); toast('Este teléfono queda como punto de venta');
+  },
   pesar: d => { const p = prod(d.id); if (!p) return; pesa = {pid: d.id, modo: 'peso', texto: '', gramos: false, mayoreo: null}; abrirModal('pesar'); },
   'pesa-mayoreo': d => { pesa.mayoreo = d.v === 'mayoreo'; pintarModal(); },
   'pesa-modo': d => { pesa.modo = d.v; pesa.texto = ''; pintarModal(); },
@@ -1323,6 +1514,27 @@ const acciones = {
       if (pin.texto.length === 4) verificarPin();
     }
   },
+  'dash-modo': async d => {
+    if (d.v === 'todas') { if (!(await cargarResumen())) return; dashTodas = true; } else dashTodas = false;
+    render();
+  },
+  'sucursal-ir': d => { cerrarModal(); cambiarSucursal(d.id).then(() => { if (vista !== 'vender' && vista !== 'direccion') ir('dashboard'); }); },
+  'sucursal-nueva': () => abrirModal('sucursal-nueva'),
+  'sucursal-eliminar': () => abrirModal('confirmar', {titulo: 'Eliminar esta sucursal', texto: `Se borran los productos, ventas y movimientos de «${estado.negocio.nombre}». No se puede deshacer.`, boton: 'Sí, eliminar', accion: 'sucursal-eliminar-si', peligro: true}),
+  'sucursal-eliminar-si': async () => {
+    const datos = await ejecutar({metodo: 'DELETE', ruta: '', absoluta: false});
+    if (!datos) return;
+    cerrarModal(); sucursales = datos.sucursales || sucursales; sucursalId = sucursales[0] ? sucursales[0].id : ''; escribirLS(CLAVE_SUC, sucursalId);
+    if (await cargarEstadoSucursal()) { ir('ajustes'); toast('Sucursal eliminada'); }
+  },
+  'clave-copiar': () => {
+    const enlace = enlaceCaja(estado.negocio.clave_caja || '');
+    const listo = () => toast('Enlace copiado. Mándalo por WhatsApp al teléfono de la caja.');
+    const manual = () => toast('Copia a mano: ' + enlace);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(enlace).then(listo, manual); else manual();
+  },
+  'clave-regenerar': () => abrirModal('confirmar', {titulo: 'Cambiar la clave de caja', texto: 'Los teléfonos que tengan la clave actual dejarán de vender hasta que escriban la nueva.', boton: 'Sí, cambiar', accion: 'clave-regenerar-si', peligro: true}),
+  'clave-regenerar-si': async () => { const ok = await ejecutar({ruta: '/clave', cuerpo: {}}); if (ok) { cerrarModal(); render(); toast('Clave nueva: ' + estado.negocio.clave_caja); } },
   toggle: async d => {
     const p = prod(d.id); if (!p) return; const nuevo = !p.activo;
     const ok = await ejecutar({ruta: `/productos/${p.id}/activo`, cuerpo: {activo: nuevo}, local: () => { p.activo = nuevo; }});
@@ -1350,12 +1562,12 @@ const acciones = {
     const ok = await ejecutar({ruta: '/limpio', cuerpo: {}, local: () => { estado.negocio.ejemplo = false; estado.ventas = []; estado.movimientos = []; estado.productos.forEach(p => { p.existencia = 0; p.declarado = 0; }); }});
     if (ok) { ticket = []; cerrarModal(); render(); snapshot(); toast('Listo. Carga precios y stock en Dirección.'); }
   },
-  'ejemplo-cargar': () => abrirModal('confirmar', {titulo: 'Cargar datos de ejemplo', texto: 'Se reemplaza todo por los 8 productos con existencias y una semana de ventas inventadas, para enseñar el sistema. Después puedes «Empezar en limpio».', boton: 'Sí, cargar', accion: 'ejemplo-cargar-si'}),
+  'ejemplo-cargar': () => abrirModal('confirmar', {titulo: 'Cargar datos de ejemplo', texto: 'Se reemplaza todo en esta sucursal por el catálogo con existencias y una semana de ventas inventadas, para enseñar el sistema. Después puedes «Empezar en limpio».', boton: 'Sí, cargar', accion: 'ejemplo-cargar-si'}),
   'ejemplo-cargar-si': async () => {
     const ok = await ejecutar({ruta: '/ejemplo', cuerpo: {}, local: () => { const pinLocal = estado.negocio.pin; estado = semilla(); estado.negocio.pin = pinLocal; }});
     if (ok) { ticket = []; cerrarModal(); ir('dashboard'); toast('Datos de ejemplo cargados'); }
   },
-  'borrar-todo': () => abrirModal('confirmar', {titulo: 'Borrar todo', texto: 'Se borran ventas, movimientos, productos y ajustes. Queda el catálogo básico, todo apagado y sin existencia. No se puede deshacer sin un respaldo.', boton: 'Sí, borrar todo', accion: 'borrar-todo-si', peligro: true}),
+  'borrar-todo': () => abrirModal('confirmar', {titulo: 'Borrar todo', texto: 'Se borran ventas, movimientos y productos de esta sucursal. Queda el catálogo básico, todo apagado y sin existencia. No se puede deshacer sin un respaldo.', boton: 'Sí, borrar todo', accion: 'borrar-todo-si', peligro: true}),
   'borrar-todo-si': async () => {
     const ok = await ejecutar({ruta: '/borrar', cuerpo: {}, local: () => { estado = {negocio: {nombre: 'Mi verdulería', moneda: '$', pin: '', ejemplo: false}, productos: productosCatalogo(), movimientos: [], ventas: []}; desbloqueado = false; }});
     if (ok) { ticket = []; cerrarModal(); ir('direccion'); toast('Todo borrado'); }
@@ -1378,6 +1590,45 @@ async function restaurar(txt){
 
 /* ================= Formularios ================= */
 const formularios = {
+  'entrar-caja': async () => {
+    const clave = ($('#in-clave').value || '').trim().toUpperCase();
+    if (clave.length < 4) { toast('Escribe la clave de caja'); return; }
+    const r = await llamar('GET', `/c/${clave}/estado`);
+    if (r.status === 0) { marcarRed(false); toast('Sin señal'); return; }
+    if (!r.ok) { toast((r.datos && r.datos.error) || 'Clave no válida'); return; }
+    claveCaja = clave; escribirLS(CLAVE_CAJA, clave); adoptar(r.datos); guardarPerfil('caja'); vista = 'vender'; render(); pintarRed(); snapshot();
+    toast(`Caja de ${estado.negocio.nombre}`);
+  },
+  'entrar-cuenta': async () => {
+    const r = await llamar('POST', '/sesion', {correo: $('#in-correo').value.trim(), contrasena: $('#in-contrasena').value});
+    if (r.status === 0) { marcarRed(false); toast('Sin señal'); return; }
+    if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo entrar'); return; }
+    iniciarSesionCon(r.datos); cerrarModal(); guardarPerfil('direccion');
+    if (await cargarEstadoSucursal()) { ir('dashboard'); toast(`Hola, ${cuenta.nombre}`); }
+  },
+  'crear-cuenta': async () => {
+    const d = {nombre: $('#in-nombre').value.trim(), verduleria: $('#in-verduleria').value.trim(), correo: $('#in-correo').value.trim(), contrasena: $('#in-contrasena').value};
+    const cod = $('#in-codigo'); if (cod) d.codigo = cod.value.trim();
+    const r = await llamar('POST', '/cuentas', d);
+    if (r.status === 0) { marcarRed(false); toast('Sin señal'); return; }
+    if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo crear la cuenta'); return; }
+    iniciarSesionCon(r.datos); cerrarModal(); guardarPerfil('direccion'); entradaModo = 'entrar';
+    if (await cargarEstadoSucursal()) { ir('direccion'); toast('Cuenta creada. Enciende tus productos y ponles precio.'); }
+  },
+  'sucursal-nueva': async () => {
+    const datos = await ejecutar({ruta: '/mi/sucursales', absoluta: true, cuerpo: {nombre: $('#su-nombre').value.trim(), copiar_de: $('#su-copiar').value}});
+    if (!datos) return;
+    cerrarModal(); sucursales = datos.sucursales || sucursales; sucursalId = datos.sucursal; escribirLS(CLAVE_SUC, sucursalId);
+    if (await cargarEstadoSucursal()) { ir('ajustes'); toast('Sucursal creada. Su clave de caja está aquí abajo.'); }
+  },
+  sucursal: async () => {
+    const ok = await ejecutar({metodo: 'PUT', ruta: '', cuerpo: {nombre: $('#aj-nombre').value.trim(), moneda: $('#aj-moneda').value.trim()}});
+    if (ok) { render(); toast('Sucursal guardada'); }
+  },
+  cuenta: async () => {
+    const datos = await ejecutar({metodo: 'PUT', ruta: '/mi', absoluta: true, cuerpo: {nombre: $('#cu-nombre').value.trim(), correo: $('#cu-correo').value.trim(), contrasena_actual: $('#cu-actual').value, contrasena_nueva: $('#cu-nueva').value}});
+    if (datos) { cuenta = datos.cuenta || cuenta; render(); toast('Cuenta actualizada'); }
+  },
   entrada: async () => {
     const p = prod($('#ent-prod').value); const c = num($('#ent-cant').value); const nota = $('#ent-nota').value.trim();
     if (!p || !(c > 0)) { toast('Escribe una cantidad'); return; }
@@ -1436,7 +1687,7 @@ const formularios = {
     const pinTxt = $('#aj-pin').value.trim(); const quitar = !!($('#aj-quitar-pin') && $('#aj-quitar-pin').checked);
     if (pinTxt && !/^\d{4}$/.test(pinTxt)) { toast('El PIN son 4 números'); return; }
     const nombre = $('#aj-nombre').value.trim() || 'Mi verdulería'; const mon = $('#aj-moneda').value.trim() || '$';
-    const ok = await ejecutar({metodo: 'PUT', ruta: '/negocio', cuerpo: {nombre, moneda: mon, pin: pinTxt, quitar_pin: quitar}, local: () => {
+    const ok = await ejecutar({local: () => {
       estado.negocio.nombre = nombre; estado.negocio.moneda = mon;
       if (quitar) estado.negocio.pin = ''; else if (pinTxt) { estado.negocio.pin = pinTxt; desbloqueado = true; }
     }});
@@ -1464,8 +1715,9 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'corte-dia') { corteDia = t.value || null; render(); }
+  else if (t.id === 'sel-sucursal') { if (t.value === 'nueva') { t.value = sucursalId; abrirModal('sucursal-nueva'); } else cambiarSucursal(t.value); }
   else if (t.id === 'ed-unidad') { const l = $('label[for="ed-desde"]'); if (l) l.textContent = 'A partir de (' + unidadPlural(t.value) + ')'; }
-  else if (t.id === 'ent-prod') { const p = prod(t.value); const u = $('#ent-unidad'); if (p && u) u.textContent = p.unidad === 'kg' ? 'kg' : 'piezas'; }
+  else if (t.id === 'ent-prod') { const p = prod(t.value); const u = $('#ent-unidad'); if (p && u) u.textContent = unidadPlural(p.unidad); }
   else if (t.id === 'ed-foto') { const f = t.files && t.files[0]; if (!f) return; sincronizarEdicion(); leerFoto(f, url => { edicion.foto = url; edicion.emoji = ''; pintarModal(); }); }
   else if (t.id === 'aj-archivo') { const f = t.files && t.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const ta = $('#aj-respaldo'); if (ta) ta.value = r.result; restaurar(r.result); }; r.readAsText(f); t.value = ''; }
 });
@@ -1496,26 +1748,39 @@ document.addEventListener('keydown', e => {
 
 /* ================= Arranque ================= */
 async function start(hot){
-  token = leerSS(CLAVE_TOKEN);
   try { cola = JSON.parse(leerLS(CLAVE_COLA) || '[]'); if (!Array.isArray(cola)) cola = []; } catch (e) { cola = []; }
+  cola = cola.filter(x => x && x.venta && x.ruta);
+  sesion = leerLS(CLAVE_SESION) || ''; claveCaja = leerLS(CLAVE_CAJA) || ''; sucursalId = leerLS(CLAVE_SUC) || '';
+  const guardado = leerLS(CLAVE_PERFIL);
+  perfil = guardado === 'caja' || guardado === 'direccion' ? guardado : null;
+  let cajaURL = '';
+  try { cajaURL = (new URLSearchParams(location.search).get('caja') || '').trim().toUpperCase(); } catch (e) {}
+  if (cajaURL) { claveCaja = cajaURL; escribirLS(CLAVE_CAJA, claveCaja); perfil = 'caja'; escribirLS(CLAVE_PERFIL, 'caja'); try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} }
   const r = await llamar('GET', '/estado');
   if (r.ok && r.datos && r.datos.servidor) {
-    MODO = 'servidor'; escribirLS(CLAVE_MODO, 'servidor'); adoptar(r.datos);
+    MODO = 'servidor'; escribirLS(CLAVE_MODO, 'servidor'); altaAbierta = r.datos.alta_abierta !== false;
+    if (perfil === 'direccion') { if (!sesion || !(await cargarCuenta()) || !(await cargarEstadoSucursal())) perfil = null; }
+    else if (perfil === 'caja') { if (!claveCaja || !(await cargarEstadoCaja())) perfil = null; }
+    if (!perfil) { escribirLS(CLAVE_PERFIL, null); estado = estadoVacio(); }
   } else if ((r.status === 0 || r.status >= 500) && leerLS(CLAVE_MODO) === 'servidor') {
     MODO = 'servidor'; enLinea = false;
     try { estado = JSON.parse(leerLS(CLAVE_CACHE) || 'null'); } catch (e) { estado = null; }
-    if (!estado || !Array.isArray(estado.productos)) estado = {negocio: {nombre: 'Mi verdulería', moneda: '$', tiene_pin: false, ejemplo: false}, productos: [], movimientos: [], ventas: []};
-    migrar(); cola.forEach(v => { if (!estado.ventas.some(x => x.id === v.id)) aplicarVentaLocal(v); });
+    if (!estado || !Array.isArray(estado.productos)) estado = estadoVacio();
+    migrar();
+    if (perfil === 'direccion' && !sesion) perfil = null;
+    if (perfil === 'caja' && !claveCaja) perfil = null;
+    if (perfil) { const base = rutaBase(); cola.forEach(x => { if (x.ruta.startsWith(base + '/') && !estado.ventas.some(v => v.id === x.venta.id)) aplicarVentaLocal(x.venta); }); }
   } else {
     MODO = 'local'; escribirLS(CLAVE_MODO, null);
     estado = cargarLocal() || semilla(); migrar();
+    desbloqueado = !!leerLS(CLAVE_TOKEN);
+    if (perfil === 'direccion' && tienePin() && !abierto()) perfil = null;
   }
-  const guardado = leerLS(CLAVE_PERFIL);
-  perfil = guardado === 'caja' || guardado === 'direccion' ? guardado : null;
-  if (perfil === 'direccion' && tienePin() && !abierto()) perfil = null;   // el PIN cambió o se borró la sesión: que vuelva a elegir
+  const lm = document.querySelector('link[rel="manifest"]');
+  if (lm && MODO === 'servidor' && claveCaja) lm.setAttribute('href', 'manifest.webmanifest?caja=' + claveCaja);
   const h = (location.hash || '').slice(1);
   if (VISTAS.includes(h)) vista = h;
-  if (hot && typeof hot === 'object') { if (Array.isArray(hot.ticket)) ticket = hot.ticket; if (VISTAS.includes(hot.vista)) vista = hot.vista; if (hot.perfil === 'caja' || hot.perfil === 'direccion') perfil = hot.perfil; }
+  if (hot && typeof hot === 'object') { if (Array.isArray(hot.ticket)) ticket = hot.ticket; if (VISTAS.includes(hot.vista)) vista = hot.vista; }
   if (perfil !== 'direccion') vista = 'vender';
   render(); pintarRed();
   if (MODO === 'servidor') {
@@ -1530,6 +1795,7 @@ const H = window.claude && window.claude.hot;
 if (H && typeof H.ready === 'function') H.ready(start); else start(H && H.data);
 })();
 </script>
+
 
 <!--ART-END-->
 </body>
