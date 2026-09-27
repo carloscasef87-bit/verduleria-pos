@@ -32,6 +32,8 @@ DB = os.path.join(DATOS_DIR, 'verduleria.db')
 DIAS_HISTORIAL = int(os.environ.get('DIAS_HISTORIAL', '60'))
 CODIGO_ALTA = (os.environ.get('CODIGO_ALTA') or '').strip()
 GOOGLE_CLIENT_ID = (os.environ.get('GOOGLE_CLIENT_ID') or '').strip()
+CORREO_CONTACTO = (os.environ.get('CORREO_CONTACTO') or '').strip()   # se muestra en /privacidad y /terminos
+PAGINAS = {'privacidad': 'privacidad.html', 'terminos': 'terminos.html'}
 DIA_MS = 86400000
 SESION_DIAS = 180
 VERSION = '2026-09-26.1'   # el navegador la compara con la suya y se recarga si cambió
@@ -354,8 +356,21 @@ def inicio():
     return estatico('index.html')
 
 
+def pagina(nombre):
+    """Política de privacidad y condiciones: las pide Google para publicar el acceso con Gmail."""
+    with open(os.path.join(RAIZ, PAGINAS[nombre]), encoding='utf-8') as f:
+        html = f.read()
+    contacto = f'Escríbenos a <a href="mailto:{CORREO_CONTACTO}">{CORREO_CONTACTO}</a>.' if CORREO_CONTACTO else 'Escríbenos al correo de asistencia que aparece en la pantalla de acceso con Google.'
+    resp = Response(html.replace('{{CONTACTO}}', contacto), mimetype='text/html; charset=utf-8')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
 @app.get('/<path:archivo>')
 def estatico(archivo):
+    llano = archivo[:-5] if archivo.endswith('.html') else archivo
+    if llano in PAGINAS:
+        return pagina(llano)
     if archivo not in ARCHIVOS_PUBLICOS:
         return error('No existe', 404)
     if archivo == 'manifest.webmanifest':
