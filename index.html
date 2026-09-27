@@ -546,7 +546,7 @@ const CLAVE_SESION = 'verduleria.sesion'; // servidor: sesión del dueño
 const CLAVE_SUC = 'verduleria.sucursal';  // servidor: sucursal abierta en dirección
 const CLAVE_CAJA = 'verduleria.caja';     // servidor: clave de caja de este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
-const VERSION = '2026-09-26.1';           // si el servidor trae otra, la página se recarga sola
+const VERSION = '2026-09-27.1';           // si el servidor trae otra, la página se recarga sola
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -724,11 +724,12 @@ function camposCuentaHTML(reg){
   return `${reg ? `<input id="in-nombre" placeholder="Tu nombre" required maxlength="40" autocomplete="name"><input id="in-verduleria" placeholder="Nombre de la verdulería" required maxlength="40">` : ''}
     <input id="in-correo" type="email" placeholder="Correo" required autocomplete="username" inputmode="email">
     <input id="in-contrasena" type="password" placeholder="Contraseña" required minlength="6" autocomplete="${reg ? 'new-password' : 'current-password'}">
-    ${reg && !altaAbierta ? `<input id="in-codigo" placeholder="Código de invitación" required autocomplete="off">` : ''}`;
+    ${reg && !altaAbierta && !googleClientId ? `<input id="in-codigo" placeholder="Código de invitación" required autocomplete="off">` : ''}`;
 }
 function googleHTML(){
   if (MODO !== 'servidor' || !googleClientId) return '';
-  return `<div class="google-btn" aria-label="Continuar con Google"></div><div class="o-sep"><span>o con tu correo</span></div>`;
+  const reg = entradaModo === 'registro';
+  return `${reg && !altaAbierta ? `<input id="in-codigo" placeholder="Código de invitación" required autocomplete="off">` : ''}<div class="google-btn" aria-label="Continuar con Google"></div><div class="o-sep"><span>o con tu correo</span></div>`;
 }
 function cargarGoogle(){
   if (!googleClientId || document.getElementById('gsi-script')) return;
@@ -743,8 +744,13 @@ function pintarGoogle(){
   $$('.google-btn').forEach(el => { if (el.childElementCount) return; try { google.accounts.id.renderButton(el, {theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', locale: 'es', width: 280}); } catch (e) {} });
 }
 async function credencialGoogle(resp){
-  const r = await llamar('POST', '/sesion/google', {credential: resp && resp.credential});
+  const cod = $('#in-codigo');
+  const r = await llamar('POST', '/sesion/google', {credential: resp && resp.credential, codigo: cod ? cod.value.trim() : ''});
   if (r.status === 0) { marcarRed(false); toast('Sin señal'); return; }
+  if (r.status === 403) {
+    if (entradaModo !== 'registro') { entradaModo = 'registro'; if (modalActual === 'login') pintarModal(); else render(); }
+    toast('Cuenta nueva: escribe el código de invitación y vuelve a tocar el botón de Google'); return;
+  }
   if (!r.ok) { toast((r.datos && r.datos.error) || 'No se pudo entrar con Google'); return; }
   iniciarSesionCon(r.datos); cerrarModal(); guardarPerfil('direccion'); entradaModo = 'entrar';
   if (await cargarEstadoSucursal()) {

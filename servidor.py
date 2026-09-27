@@ -36,7 +36,7 @@ CORREO_CONTACTO = (os.environ.get('CORREO_CONTACTO') or '').strip()   # se muest
 PAGINAS = {'privacidad': 'privacidad.html', 'terminos': 'terminos.html'}
 DIA_MS = 86400000
 SESION_DIAS = 180
-VERSION = '2026-09-26.1'   # el navegador la compara con la suya y se recarga si cambió
+VERSION = '2026-09-27.1'   # el navegador la compara con la suya y se recarga si cambió
 
 # Catálogo inicial: (nombre, imagen = clave de ilustración o emoji, unidad, precio de referencia).
 # Es el mismo que el del index.html. Arranca todo apagado: el dueño enciende en Dirección lo que vende.
