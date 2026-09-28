@@ -372,6 +372,13 @@ button,a.btn{-webkit-tap-highlight-color:transparent}
 .filtro-tabla{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .filtro-tabla input{flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--ground);min-height:42px}
 .filtro-tabla .cuenta{font-size:.85rem;color:var(--muted);white-space:nowrap}
+.estado-guardado{font-size:.85rem;font-weight:700;white-space:nowrap;min-width:6.5em}
+.estado-guardado.ok{color:var(--accent)}.estado-guardado.mal{color:var(--bad)}.estado-guardado.ocupado{color:var(--muted)}
+.tabla-carga tr.guardado{animation:flash-ok 1.1s ease-out}
+.tabla-carga tr.error{animation:flash-mal 1.1s ease-out}
+.tabla-carga tr.apagada .prod-celda{opacity:.55}
+@keyframes flash-ok{0%{background:var(--accent-soft)}100%{background:transparent}}
+@keyframes flash-mal{0%{background:color-mix(in srgb,var(--bad) 18%,transparent)}100%{background:transparent}}
 .tk-acciones{display:flex;justify-content:flex-end;padding:6px 0 2px}
 .casilla{display:flex;align-items:center;gap:8px;font-size:.9rem}
 .casilla input{width:20px;height:20px;min-height:0;padding:0}
@@ -546,7 +553,7 @@ const CLAVE_SESION = 'verduleria.sesion'; // servidor: sesión del dueño
 const CLAVE_SUC = 'verduleria.sucursal';  // servidor: sucursal abierta en dirección
 const CLAVE_CAJA = 'verduleria.caja';     // servidor: clave de caja de este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
-const VERSION = '2026-09-27.1';           // si el servidor trae otra, la página se recarga sola
+const VERSION = '2026-09-28.2';           // si el servidor trae otra, la página se recarga sola
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -861,7 +868,7 @@ function movimientosHTML(lista){
 }
 function filaCargaHTML(p){
   const n = nivel(p);
-  return `<tr data-banda="${banda(p)}" data-nombre="${esc(p.nombre.toLowerCase())}"${p.activo ? '' : ' class="apagada"'}>
+  return `<tr data-banda="${banda(p)}" data-pid="${p.id}" data-nombre="${esc(p.nombre.toLowerCase())}"${p.activo ? '' : ' class="apagada"'}>
     <td><span class="prod-celda">${ilusDe(p, 'chica')}<span>${esc(p.nombre)}${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span></span></td>
     <td class="num"><small class="lbl-cel">Costo</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.costo || ''}" data-c-costo="${p.id}" placeholder="0" aria-label="Costo de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
     <td class="num"><small class="lbl-cel">Precio menudeo</small><span class="celda-input">${esc(moneda())}<input type="number" min="0" step="any" inputmode="decimal" value="${p.precio}" data-c-precio="${p.id}" aria-label="Precio de menudeo de ${esc(p.nombre)}"><small>/${unidadCorta(p.unidad)}</small></span></td>
@@ -895,11 +902,10 @@ function tarjetasDireccionHTML(){
 function vistaDireccion(){
   const encendidos = estado.productos.filter(p => p.activo).length;
   const ordenados = estado.productos.filter(p => p.activo).concat(estado.productos.filter(p => !p.activo));
-  const tabla = estado.productos.length ? `<form class="seccion" data-form="carga"><h3>Productos, precios y stock</h3>
-      <p class="ayuda">Enciende lo que vendes y escribe lo que te cuesta, a cómo lo das de menudeo y lo que hay en el puesto ahora mismo. El stock que guardes queda declarado como nivel 100. Mayoreo: precio especial a partir de una cantidad (la caja lo aplica sola). El costo sirve para ver la ganancia en el Dashboard y el Corte.</p>
-      <div class="filtro-tabla"><input id="filtro-carga" type="search" placeholder="Buscar en el catálogo…" aria-label="Buscar producto" autocomplete="off"><span class="cuenta">${encendidos} encendido${encendidos === 1 ? '' : 's'} de ${estado.productos.length}</span></div>
-      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Costo</th><th class="num">Menudeo</th><th class="num">Stock actual</th><th class="num">Mayoreo</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div>
-      <div class="botonera"><button type="submit" class="btn primario">Guardar precios y stock</button></div></form>` : '';
+  const tabla = estado.productos.length ? `<div class="seccion"><h3>Productos, precios y stock</h3>
+      <p class="ayuda">Enciende lo que vendes y escribe lo que te cuesta, a cómo lo das de menudeo y lo que hay en el puesto ahora mismo. <b>Cada cuadro se guarda solo al salir de él.</b> El stock que escribas queda declarado como nivel 100. Mayoreo: precio especial a partir de una cantidad (la caja lo aplica sola). El costo sirve para ver la ganancia.</p>
+      <div class="filtro-tabla"><input id="filtro-carga" type="search" placeholder="Buscar en el catálogo…" aria-label="Buscar producto" autocomplete="off"><span class="cuenta" id="cuenta-carga">${encendidos} encendido${encendidos === 1 ? '' : 's'} de ${estado.productos.length}</span><span class="estado-guardado" id="estado-guardado" aria-live="polite"></span></div>
+      <div class="tabla-wrap"><table class="tabla-carga"><thead><tr><th>Producto</th><th class="num">Costo</th><th class="num">Menudeo</th><th class="num">Stock actual</th><th class="num">Mayoreo</th><th>Nivel</th><th>En venta</th></tr></thead><tbody>${ordenados.map(filaCargaHTML).join('')}</tbody></table></div></div>` : '';
   return `<div class="direccion">
     <div class="acciones"><h2>Dirección</h2><span class="ayuda">Nivel 100 = lo que declaraste · 0 = se acabó</span><span class="espacio"></span><button class="btn primario" data-accion="entrada">Declarar entrada</button><button class="btn borde" data-accion="nuevo">Nuevo producto</button></div>
     ${tabla}
@@ -1600,7 +1606,12 @@ const acciones = {
     const p = prod(d.id); if (!p) return; const nuevo = !p.activo;
     const ok = await ejecutar({ruta: `/productos/${p.id}/activo`, cuerpo: {activo: nuevo}, local: () => { p.activo = nuevo; }});
     if (!ok) return;
-    if (vista === 'direccion') { $$(`[data-accion="toggle"][data-id="${p.id}"]`).forEach(b => b.setAttribute('aria-checked', String(nuevo))); const t = $('#dir-tarjetas'); if (t) t.innerHTML = tarjetasDireccionHTML(); }
+    if (vista === 'direccion') {
+      $$(`[data-accion="toggle"][data-id="${p.id}"]`).forEach(b => b.setAttribute('aria-checked', String(nuevo)));
+      const tr = $(`.tabla-carga tr[data-pid="${p.id}"]`); if (tr) tr.classList.toggle('apagada', !nuevo);
+      const enc = estado.productos.filter(x => x.activo).length; const c = $('#cuenta-carga'); if (c) c.textContent = `${enc} encendido${enc === 1 ? '' : 's'} de ${estado.productos.length}`;
+      const t = $('#dir-tarjetas'); if (t) t.innerHTML = tarjetasDireccionHTML();
+    }
     else render();
     toast(nuevo ? `${p.nombre} en venta` : `${p.nombre} apagado`);
   },
@@ -1647,6 +1658,52 @@ async function restaurar(txt){
   if (!d || !Array.isArray(d.productos) || !d.negocio) { toast('Ese texto no es un respaldo válido'); return; }
   const ok = await ejecutar({ruta: '/restaurar', cuerpo: d, local: () => { estado = d; migrar(); }});
   if (ok) { ticket = []; render(); snapshot(); toast('Respaldo restaurado'); }
+}
+
+/* ---- Tabla de Dirección: cada renglón se guarda solo ---- */
+function itemCarga(pid){
+  const ip = $(`[data-c-precio="${pid}"]`), is = $(`[data-c-stock="${pid}"]`), im = $(`[data-c-may="${pid}"]`), idd = $(`[data-c-desde="${pid}"]`), ic = $(`[data-c-costo="${pid}"]`);
+  const it = {id: pid, precio: ip ? ip.value : '', existencia: is ? is.value : '', costo: ic ? ic.value : ''};
+  if (im && idd) { it.precio_mayoreo = r2(Math.max(0, num(im.value))); it.mayoreo_desde = r3(Math.max(0, num(idd.value))); }
+  return it;
+}
+function aplicarCargaLocal(items){
+  const ts = Date.now();
+  items.forEach(it => {
+    const p = prod(it.id); if (!p) return;
+    if (it.precio !== '') { const v = r2(Math.max(0, num(it.precio))); if (v !== p.precio) p.precio = v; }
+    if (it.costo !== '') p.costo = r2(Math.max(0, num(it.costo)));
+    if (it.precio_mayoreo !== undefined) { p.precio_mayoreo = it.precio_mayoreo; p.mayoreo_desde = it.mayoreo_desde; }
+    if (it.existencia !== '') {
+      const v = r3(Math.max(0, num(it.existencia)));
+      if (v !== r3(Math.max(0, p.existencia))) {
+        const delta = r3(v - p.existencia); p.existencia = v; p.declarado = v;
+        estado.movimientos.push({id: uid(), ts, tipo: delta > 0 ? 'entrada' : 'ajuste', pid: p.id, nombre: p.nombre, cantidad: delta, unidad: p.unidad, nota: 'Carga desde Dirección'});
+      }
+    }
+  });
+}
+let guardadoTimer = null;
+function estadoGuardado(txt, clase){
+  const el = $('#estado-guardado'); if (!el) return;
+  el.textContent = txt; el.className = 'estado-guardado ' + (clase || '');
+  clearTimeout(guardadoTimer); if (txt) guardadoTimer = setTimeout(() => { el.textContent = ''; el.className = 'estado-guardado'; }, 2500);
+}
+async function guardarFilaCarga(pid){
+  const it = itemCarga(pid);
+  estadoGuardado('Guardando…', 'ocupado');
+  const ok = await ejecutar({ruta: '/carga', cuerpo: {items: [it]}, local: () => aplicarCargaLocal([it])});
+  const tr = $(`.tabla-carga tr[data-pid="${pid}"]`);
+  if (!ok) { estadoGuardado('No se guardó', 'mal'); if (tr) { tr.classList.remove('error'); void tr.offsetWidth; tr.classList.add('error'); } return; }
+  const p = prod(pid);
+  if (tr && p) {
+    tr.dataset.banda = banda(p);
+    const barra = tr.querySelector('.nivel i'), n = tr.querySelector('.nivel b');
+    if (barra) barra.style.width = nivel(p) + '%'; if (n) n.textContent = nivel(p);
+    tr.classList.remove('guardado'); void tr.offsetWidth; tr.classList.add('guardado');
+  }
+  const t = $('#dir-tarjetas'); if (t) t.innerHTML = tarjetasDireccionHTML();
+  estadoGuardado('Guardado ✓', 'ok');
 }
 
 /* ================= Formularios ================= */
@@ -1709,31 +1766,7 @@ const formularios = {
     }});
     if (ok) { cerrarModal(); render(); toast(`${p.nombre} ajustado a ${cantidadTxt(nueva, p.unidad)}`); }
   },
-  carga: async () => {
-    const items = estado.productos.map(p => {
-      const ip = $(`[data-c-precio="${p.id}"]`), is = $(`[data-c-stock="${p.id}"]`), im = $(`[data-c-may="${p.id}"]`), idd = $(`[data-c-desde="${p.id}"]`), ic = $(`[data-c-costo="${p.id}"]`);
-      const it = {id: p.id, precio: ip ? ip.value : '', existencia: is ? is.value : '', costo: ic ? ic.value : ''};
-      if (im && idd) { it.precio_mayoreo = r2(Math.max(0, num(im.value))); it.mayoreo_desde = r3(Math.max(0, num(idd.value))); }
-      return it;
-    });
-    const ok = await ejecutar({ruta: '/carga', cuerpo: {items}, local: () => {
-      const ts = Date.now();
-      items.forEach(it => {
-        const p = prod(it.id); if (!p) return;
-        if (it.precio !== '') { const v = r2(Math.max(0, num(it.precio))); if (v !== p.precio) p.precio = v; }
-        if (it.costo !== '') p.costo = r2(Math.max(0, num(it.costo)));
-        if (it.precio_mayoreo !== undefined) { p.precio_mayoreo = it.precio_mayoreo; p.mayoreo_desde = it.mayoreo_desde; }
-        if (it.existencia !== '') {
-          const v = r3(Math.max(0, num(it.existencia)));
-          if (v !== r3(Math.max(0, p.existencia))) {
-            const delta = r3(v - p.existencia); p.existencia = v; p.declarado = v;
-            estado.movimientos.push({id: uid(), ts, tipo: delta > 0 ? 'entrada' : 'ajuste', pid: p.id, nombre: p.nombre, cantidad: delta, unidad: p.unidad, nota: 'Carga desde Dirección'});
-          }
-        }
-      });
-    }});
-    if (ok) { render(); toast('Precios y stock guardados'); }
-  },
+
   editar: async () => {
     sincronizarEdicion(); const e = edicion;
     const nombre = e.nombre.trim(); const precio = r2(num(e.precio));
@@ -1776,6 +1809,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  const pidCarga = t.dataset.cPrecio || t.dataset.cStock || t.dataset.cMay || t.dataset.cDesde || t.dataset.cCosto;
+  if (pidCarga) { guardarFilaCarga(pidCarga); return; }
   if (t.id === 'corte-dia') { corteDia = t.value || null; render(); }
   else if (t.id === 'sel-sucursal') { if (t.value === 'nueva') { t.value = sucursalId; abrirModal('sucursal-nueva'); } else cambiarSucursal(t.value); }
   else if (t.id === 'ed-unidad') { const l = $('label[for="ed-desde"]'); if (l) l.textContent = 'Mayoreo a partir de (' + unidadPlural(t.value) + ')'; }

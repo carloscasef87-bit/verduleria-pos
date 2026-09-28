@@ -36,7 +36,7 @@ CORREO_CONTACTO = (os.environ.get('CORREO_CONTACTO') or '').strip()   # se muest
 PAGINAS = {'privacidad': 'privacidad.html', 'terminos': 'terminos.html', 'operador': 'operador.html'}
 DIA_MS = 86400000
 SESION_DIAS = 180
-VERSION = '2026-09-28.1'
+VERSION = '2026-09-28.2'
 CLAVE_OPERADOR = (os.environ.get('CLAVE_OPERADOR') or '').strip()   # abre /operador: avance de todas las cuentas
 TZ_HORAS = int(os.environ.get('TZ_HORAS', '-6'))                     # México centro; el servidor corre en UTC   # el navegador la compara con la suya y se recarga si cambió
 
