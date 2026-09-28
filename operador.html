@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operador · Verdulería al Peso</title>
+<style>
+body{margin:0;background:#F3F6EC;color:#1B261E;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 12px}h2{font-size:1.15rem;margin:22px 0 4px}
+.cuenta{background:#fff;border:1px solid #D3DCC6;border-radius:14px;padding:14px 16px;margin:12px 0}
+.meta{color:#5C6A60;font-size:.85rem}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.9rem}
+th,td{padding:6px 8px;border-bottom:1px solid #D3DCC6;text-align:left;vertical-align:top}th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#5C6A60}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.ok{color:#2A8A4C;font-weight:700}.mal{color:#CF3F3F;font-weight:700}
+input{padding:10px 12px;border:1px solid #D3DCC6;border-radius:10px;min-width:220px}button{padding:10px 14px;border:0;border-radius:10px;background:#2A8A4C;color:#fff;font-weight:700}
+.dias{font-size:.8rem;color:#5C6A60}
+@media (max-width:640px){table{display:block;overflow-x:auto}}
+</style>
+</head>
+<body><main>
+<h1>Operador</h1>
+<form id="f"><input id="clave" type="password" placeholder="Clave de operador" autocomplete="current-password"> <button>Ver</button></form>
+<div id="salida"></div>
+<script>
+const $=s=>document.querySelector(s);const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const din=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+async function cargar(clave){
+  const r=await fetch('api/operador',{headers:{'X-Operador':clave},cache:'no-store'});
+  if(!r.ok){$('#salida').innerHTML='<p class="mal">Clave incorrecta o servidor sin CLAVE_OPERADOR.</p>';return;}
+  const d=await r.json(); try{localStorage.setItem('operador.clave',clave)}catch(e){}
+  $('#salida').innerHTML=`<p class="meta">Hoy ${d.hoy} · ${d.cuentas.length} cuentas · versión ${d.version}</p>`+d.cuentas.map(c=>`<div class="cuenta">
+    <h2>${esc(c.nombre)} <span class="meta">· ${esc(c.correo)}${c.con_google?' · Google':''}</span></h2>
+    <div class="meta">Cuenta creada ${c.creada} · última entrada a Dirección: ${c.ultima_entrada||'nunca'}</div>
+    <table><thead><tr><th>Sucursal</th><th class="num">Encendidos</th><th class="num">Con stock</th><th class="num">Con costo</th><th class="num">Mayoreo</th><th class="num">Por reponer</th><th class="num">Tickets</th><th class="num">Vendido</th><th>Última venta</th><th>Última carga</th><th>Últimos 7 días</th></tr></thead><tbody>
+    ${c.sucursales.map(s=>`<tr><td><b>${esc(s.nombre)}</b>${s.ejemplo?' <span class="meta">(datos de ejemplo)</span>':''}<br><span class="meta">caja ${esc(s.clave_caja)} · creada ${s.creada}</span></td><td class="num">${s.productos.encendidos}/${s.productos.total}</td><td class="num">${s.productos.con_stock}</td><td class="num">${s.productos.con_costo}</td><td class="num">${s.productos.con_mayoreo}</td><td class="num">${s.productos.por_reponer}</td><td class="num">${s.ventas.tickets}</td><td class="num">${din(s.ventas.total)}</td><td>${s.ventas.ultima||'<span class="mal">ninguna</span>'}</td><td>${s.cargas.ultima||'<span class="mal">ninguna</span>'}</td><td class="dias">${Object.keys(s.ventas.por_dia).sort().map(k=>`${k.slice(5)}: ${s.ventas.por_dia[k].tickets} · ${din(s.ventas.por_dia[k].total)}`).join('<br>')||'—'}</td></tr>`).join('')}
+    </tbody></table></div>`).join('');
+}
+$('#f').addEventListener('submit',e=>{e.preventDefault();cargar($('#clave').value.trim())});
+try{const c=localStorage.getItem('operador.clave');if(c){$('#clave').value=c;cargar(c)}}catch(e){}
+</script>
+</main></body>
+</html>

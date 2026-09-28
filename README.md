@@ -54,6 +54,12 @@ Cuando la dirección declara stock (entrada o carga), esa cantidad se vuelve el 
 (nivel 100). Cada venta baja la existencia y el nivel es `existencia / declarado × 100`.
 0 = se acabó. Verde ≥ 50, ámbar 20–49, rojo < 20.
 
+## Página de operador
+
+`/operador` (con la variable `CLAVE_OPERADOR`) muestra el avance de todas las cuentas: sucursales,
+productos encendidos, con stock y con costo, tickets, vendido, última venta, última carga y ventas
+de los últimos 7 días. Cifras agregadas, sin tickets.
+
 ## Versiones
 
 Cada respuesta del servidor trae su versión; si la página abierta en un teléfono es más vieja,

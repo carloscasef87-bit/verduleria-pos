@@ -33,10 +33,12 @@ DIAS_HISTORIAL = int(os.environ.get('DIAS_HISTORIAL', '60'))
 CODIGO_ALTA = (os.environ.get('CODIGO_ALTA') or '').strip()
 GOOGLE_CLIENT_ID = (os.environ.get('GOOGLE_CLIENT_ID') or '').strip()
 CORREO_CONTACTO = (os.environ.get('CORREO_CONTACTO') or '').strip()   # se muestra en /privacidad y /terminos
-PAGINAS = {'privacidad': 'privacidad.html', 'terminos': 'terminos.html'}
+PAGINAS = {'privacidad': 'privacidad.html', 'terminos': 'terminos.html', 'operador': 'operador.html'}
 DIA_MS = 86400000
 SESION_DIAS = 180
-VERSION = '2026-09-27.1'   # el navegador la compara con la suya y se recarga si cambió
+VERSION = '2026-09-28.1'
+CLAVE_OPERADOR = (os.environ.get('CLAVE_OPERADOR') or '').strip()   # abre /operador: avance de todas las cuentas
+TZ_HORAS = int(os.environ.get('TZ_HORAS', '-6'))                     # México centro; el servidor corre en UTC   # el navegador la compara con la suya y se recarga si cambió
 
 # Catálogo inicial: (nombre, imagen = clave de ilustración o emoji, unidad, precio de referencia).
 # Es el mismo que el del index.html. Arranca todo apagado: el dueño enciende en Dirección lo que vende.
@@ -63,6 +65,9 @@ ARCHIVOS_PUBLICOS = {'index.html': 'text/html; charset=utf-8', 'manifest.webmani
                      'sw.js': 'application/javascript', 'icono.svg': 'image/svg+xml', 'icono-180.png': 'image/png'}
 COLS_PRODUCTO = 'id, sucursal_id, nombre, ilus, emoji, foto, unidad, precio, activo, declarado, existencia, orden, descripcion, precio_mayoreo, mayoreo_desde, costo'
 INS_PRODUCTO = f'INSERT INTO productos({COLS_PRODUCTO}) VALUES ({",".join("?" * 16)})'
+# Siempre con nombres de columna: en una base migrada el orden físico de las columnas no es el del esquema.
+INS_MOV = 'INSERT INTO movimientos(id, sucursal_id, ts, tipo, pid, nombre, cantidad, unidad, nota) VALUES (?,?,?,?,?,?,?,?,?)'
+INS_VENTA = 'INSERT INTO ventas(id, sucursal_id, ts, lineas, total, recibido, cambio) VALUES (?,?,?,?,?,?,?)'
 
 app = Flask(__name__, static_folder=None)
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # las fotos viajan como data URL
@@ -163,7 +168,7 @@ def crear_cuenta(con, nombre, correo, contrasena, google_sub=None):
     """Sin contraseña (cuenta de Google) el hash queda vacío: solo entra con Google hasta que se ponga una."""
     sal = secrets.token_hex(16)
     cid = uid()
-    con.execute('INSERT INTO cuentas VALUES (?,?,?,?,?,?,?)',
+    con.execute('INSERT INTO cuentas(id, correo, nombre, hash, sal, creado, google_sub) VALUES (?,?,?,?,?,?,?)',
                 (cid, correo, nombre, hash_pw(contrasena, sal) if contrasena else '', sal, ahora(), google_sub))
     return cid
 
@@ -179,7 +184,8 @@ def clave_nueva(con):
 def crear_sucursal(con, cid, nombre, moneda='$', copiar_de=None, sembrar=True):
     sid = uid()
     orden = con.execute('SELECT COALESCE(MAX(orden), -1) + 1 FROM sucursales WHERE cuenta_id = ?', (cid,)).fetchone()[0]
-    con.execute('INSERT INTO sucursales VALUES (?,?,?,?,?,?,?,?)', (sid, cid, nombre, moneda, 0, clave_nueva(con), ahora(), orden))
+    con.execute('INSERT INTO sucursales(id, cuenta_id, nombre, moneda, ejemplo, clave_caja, creado, orden) VALUES (?,?,?,?,?,?,?,?)',
+                (sid, cid, nombre, moneda, 0, clave_nueva(con), ahora(), orden))
     if copiar_de:
         for r in con.execute('SELECT * FROM productos WHERE sucursal_id = ? ORDER BY orden, nombre', (copiar_de,)):
             con.execute(INS_PRODUCTO, (uid(), sid, r['nombre'], r['ilus'], r['emoji'], r['foto'], r['unidad'], r['precio'], r['activo'],
@@ -210,6 +216,18 @@ def iniciar():
         con.execute('ALTER TABLE productos ADD COLUMN costo REAL DEFAULT 0')
     if 'google_sub' not in {r[1] for r in con.execute('PRAGMA table_info(cuentas)')}:
         con.execute('ALTER TABLE cuentas ADD COLUMN google_sub TEXT')
+    # Filas que una versión anterior insertó por posición en tablas migradas (sucursal_id quedó al final):
+    # en ellas ts contiene el id de la sucursal. Se recolocan los valores; SQLite evalúa con los valores viejos.
+    rotas_v = con.execute('SELECT COUNT(*) FROM ventas WHERE ts IN (SELECT id FROM sucursales)').fetchone()[0]
+    if rotas_v:
+        con.execute('UPDATE ventas SET sucursal_id = ts, ts = lineas, lineas = total, total = recibido, recibido = cambio, cambio = sucursal_id '
+                    'WHERE ts IN (SELECT id FROM sucursales)')
+    rotas_m = con.execute('SELECT COUNT(*) FROM movimientos WHERE ts IN (SELECT id FROM sucursales)').fetchone()[0]
+    if rotas_m:
+        con.execute('UPDATE movimientos SET sucursal_id = ts, ts = tipo, tipo = pid, pid = nombre, nombre = cantidad, cantidad = unidad, unidad = nota, nota = sucursal_id '
+                    'WHERE ts IN (SELECT id FROM sucursales)')
+    if rotas_v or rotas_m:
+        print(f'[reparación] {rotas_v} ventas y {rotas_m} movimientos recolocados', flush=True)
     if vieja:
         n = con.execute('SELECT * FROM negocio WHERE id = 1').fetchone()
         correo = (os.environ.get('MIGRACION_CORREO') or 'dueno@verduleria.local').strip().lower()
@@ -276,8 +294,7 @@ def producto(con, sid, pid):
 
 
 def movimiento(con, sid, tipo, p, cantidad, nota='', ts=None):
-    con.execute('INSERT INTO movimientos VALUES (?,?,?,?,?,?,?,?,?)',
-                (uid(), sid, ts or ahora(), tipo, p['id'], p['nombre'], r3(cantidad), p['unidad'], nota))
+    con.execute(INS_MOV, (uid(), sid, ts or ahora(), tipo, p['id'], p['nombre'], r3(cantidad), p['unidad'], nota))
 
 
 def sucursales_de(con, cid):
@@ -342,7 +359,7 @@ def con_caja(f):
 
 def nueva_sesion(con, cid):
     tok = secrets.token_urlsafe(32)
-    con.execute('INSERT INTO sesiones VALUES (?,?,?,?)', (tok, cid, ahora(), ahora()))
+    con.execute('INSERT INTO sesiones(token, cuenta_id, creado, ultimo) VALUES (?,?,?,?)', (tok, cid, ahora(), ahora()))
     return tok
 
 
@@ -360,6 +377,10 @@ def pagina(nombre):
     """Política de privacidad y condiciones: las pide Google para publicar el acceso con Gmail."""
     with open(os.path.join(RAIZ, PAGINAS[nombre]), encoding='utf-8') as f:
         html = f.read()
+    if nombre == 'operador':
+        resp = Response(html, mimetype='text/html; charset=utf-8')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
     contacto = f'Escríbenos a <a href="mailto:{CORREO_CONTACTO}">{CORREO_CONTACTO}</a>.' if CORREO_CONTACTO else 'Escríbenos al correo de asistencia que aparece en la pantalla de acceso con Google.'
     resp = Response(html.replace('{{CONTACTO}}', contacto), mimetype='text/html; charset=utf-8')
     resp.headers['Cache-Control'] = 'no-cache'
@@ -385,6 +406,53 @@ def estatico(archivo):
         resp = send_from_directory(RAIZ, archivo, mimetype=ARCHIVOS_PUBLICOS[archivo])
     resp.headers['Cache-Control'] = 'no-cache'
     return resp
+
+
+def _fecha(ts):
+    if not ts:
+        return None
+    import datetime
+    return datetime.datetime.fromtimestamp(ts / 1000, datetime.timezone(datetime.timedelta(hours=TZ_HORAS))).strftime('%Y-%m-%d %H:%M')
+
+
+def _dia(ts):
+    import datetime
+    return datetime.datetime.fromtimestamp(ts / 1000, datetime.timezone(datetime.timedelta(hours=TZ_HORAS))).strftime('%Y-%m-%d')
+
+
+@app.get('/api/operador')
+def api_operador():
+    """Avance de todas las cuentas, para quien opera el servicio. Cifras agregadas, sin tickets."""
+    if not CLAVE_OPERADOR or not secrets.compare_digest(request.headers.get('X-Operador', ''), CLAVE_OPERADOR):
+        return error('Clave de operador incorrecta', 401)
+    con = db()
+    hoy = _dia(ahora())
+    desde7 = ahora() - 7 * DIA_MS
+    out = []
+    for c in con.execute('SELECT * FROM cuentas ORDER BY creado'):
+        ses = con.execute('SELECT MAX(ultimo) m FROM sesiones WHERE cuenta_id = ?', (c['id'],)).fetchone()
+        sucs = []
+        for s in con.execute('SELECT * FROM sucursales WHERE cuenta_id = ? ORDER BY orden, creado', (c['id'],)):
+            p = con.execute('SELECT COUNT(*) n, COALESCE(SUM(activo),0) a, COALESCE(SUM(activo AND existencia > 0),0) con_stock, '
+                            'COALESCE(SUM(activo AND costo > 0),0) con_costo, COALESCE(SUM(activo AND precio_mayoreo > 0),0) con_mayoreo, '
+                            'COALESCE(SUM(activo AND (existencia <= 0 OR (declarado > 0 AND existencia / declarado < 0.2))),0) alertas '
+                            'FROM productos WHERE sucursal_id = ?', (s['id'],)).fetchone()
+            v = con.execute('SELECT COUNT(*) n, COALESCE(SUM(total),0) t, MAX(ts) u FROM ventas WHERE sucursal_id = ?', (s['id'],)).fetchone()
+            por_dia = {}
+            for r in con.execute('SELECT ts, total FROM ventas WHERE sucursal_id = ? AND ts >= ?', (s['id'], desde7)):
+                d = _dia(r['ts'])
+                por_dia.setdefault(d, {'tickets': 0, 'total': 0})
+                por_dia[d]['tickets'] += 1
+                por_dia[d]['total'] = r2(por_dia[d]['total'] + r['total'])
+            m = con.execute("SELECT COUNT(*) n, MAX(ts) u FROM movimientos WHERE sucursal_id = ? AND tipo != 'venta'", (s['id'],)).fetchone()
+            sucs.append({'nombre': s['nombre'], 'creada': _fecha(s['creado']), 'ejemplo': bool(s['ejemplo']), 'clave_caja': s['clave_caja'],
+                         'productos': {'total': p['n'], 'encendidos': p['a'], 'con_stock': p['con_stock'], 'con_costo': p['con_costo'],
+                                       'con_mayoreo': p['con_mayoreo'], 'por_reponer': p['alertas']},
+                         'ventas': {'tickets': v['n'], 'total': r2(v['t']), 'ultima': _fecha(v['u']), 'hoy': por_dia.get(hoy, {'tickets': 0, 'total': 0}), 'por_dia': por_dia},
+                         'cargas': {'n': m['n'], 'ultima': _fecha(m['u'])}})
+        out.append({'nombre': c['nombre'], 'correo': c['correo'], 'creada': _fecha(c['creado']), 'con_google': bool(c['google_sub']),
+                    'ultima_entrada': _fecha(ses['m']), 'sucursales': sucs})
+    return jsonify(cuentas=out, hoy=hoy, version=VERSION)
 
 
 @app.get('/api/salud')
@@ -644,8 +712,7 @@ def registrar_venta(d):
         if l['pid']:
             con.execute('UPDATE productos SET existencia = ROUND(existencia - ?, 3) WHERE id = ?', (l['cantidad'], l['pid']))
             movimiento(con, sid, 'venta', producto(con, sid, l['pid']), l['cantidad'], '', ts)
-    con.execute('INSERT INTO ventas VALUES (?,?,?,?,?,?,?)',
-                (vid, sid, ts, json.dumps(lineas, ensure_ascii=False), total, recibido, r2(recibido - total)))
+    con.execute(INS_VENTA, (vid, sid, ts, json.dumps(lineas, ensure_ascii=False), total, recibido, r2(recibido - total)))
     con.commit()
     return None
 
@@ -880,8 +947,7 @@ def api_ejemplo():
                     movimiento(con, sid, 'venta', p, cantidad, '', ts)
             total = r2(sum(l['importe'] for l in lineas))
             recibido = float(-(-total // 50) * 50) or total
-            con.execute('INSERT INTO ventas VALUES (?,?,?,?,?,?,?)',
-                        (uid(), sid, ts, json.dumps(lineas, ensure_ascii=False), total, recibido, r2(recibido - total)))
+            con.execute(INS_VENTA, (uid(), sid, ts, json.dumps(lineas, ensure_ascii=False), total, recibido, r2(recibido - total)))
     con.execute('UPDATE sucursales SET ejemplo = 1 WHERE id = ?', (sid,))
     con.commit()
     return responder()
@@ -917,7 +983,7 @@ def api_restaurar():
     for m in (d.get('movimientos') or [])[:20000]:
         if not isinstance(m, dict):
             continue
-        con.execute('INSERT OR IGNORE INTO movimientos VALUES (?,?,?,?,?,?,?,?,?)',
+        con.execute(INS_MOV.replace('INSERT INTO', 'INSERT OR IGNORE INTO'),
                     (texto(m.get('id'), 40) or uid(), sid, int(num(m.get('ts'), ahora())), texto(m.get('tipo'), 10) or 'ajuste',
                      texto(m.get('pid'), 40), texto(m.get('nombre'), 40), r3(num(m.get('cantidad'))),
                      unidad_valida(m.get('unidad')), texto(m.get('nota'), 60)))
@@ -926,7 +992,7 @@ def api_restaurar():
             continue
         total = r2(num(v.get('total')))
         recibido = r2(num(v.get('recibido'), total))
-        con.execute('INSERT OR IGNORE INTO ventas VALUES (?,?,?,?,?,?,?)',
+        con.execute(INS_VENTA.replace('INSERT INTO', 'INSERT OR IGNORE INTO'),
                     (texto(v.get('id'), 40) or uid(), sid, int(num(v.get('ts'), ahora())),
                      json.dumps(v['lineas'][:100], ensure_ascii=False), total, recibido, r2(recibido - total)))
     con.commit()
