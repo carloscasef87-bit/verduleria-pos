@@ -553,7 +553,7 @@ const CLAVE_SESION = 'verduleria.sesion'; // servidor: sesión del dueño
 const CLAVE_SUC = 'verduleria.sucursal';  // servidor: sucursal abierta en dirección
 const CLAVE_CAJA = 'verduleria.caja';     // servidor: clave de caja de este teléfono
 const API = 'api';                        // relativo: sirve en / (Railway) y en /verduleria-pos/ (Pages, donde no hay API)
-const VERSION = '2026-09-28.2';           // si el servidor trae otra, la página se recarga sola
+const VERSION = '2026-09-28.3';           // si el servidor trae otra, la página se recarga sola
 const VISTAS = ['vender','dashboard','direccion','corte','ajustes'];
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
@@ -1310,10 +1310,15 @@ function abrirEditar(id){
   edicion.tipo = edicion.foto ? 'foto' : edicion.emoji ? 'emoji' : 'ilus';
   abrirModal('editar');
 }
+function primerEmoji(v){
+  v = (v || '').trim(); if (!v) return '';
+  try { const it = new Intl.Segmenter('es', {granularity: 'grapheme'}).segment(v)[Symbol.iterator]().next(); return it.done ? '' : it.value.segment; }
+  catch (e) { return v.slice(0, 16); }
+}
 function sincronizarEdicion(){
   const n = $('#ed-nombre'), de = $('#ed-desc'), u = $('#ed-unidad'), pr = $('#ed-precio'), em = $('#ed-emoji'), may = $('#ed-may'), desde = $('#ed-desde'), co = $('#ed-costo');
   if (co) edicion.costo = co.value;
-  if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = em.value.trim();
+  if (n) edicion.nombre = n.value; if (de) edicion.descripcion = de.value; if (u) edicion.unidad = u.value; if (pr) edicion.precio = pr.value; if (em) edicion.emoji = primerEmoji(em.value);
   if (may) edicion.precio_mayoreo = may.value; if (desde) edicion.mayoreo_desde = desde.value;
 }
 function editarHTML(){
@@ -1323,7 +1328,7 @@ function editarHTML(){
     imagen = `<div class="galeria" role="listbox" aria-label="Ilustraciones">${Object.keys(ILUS).map(k => `<button type="button" role="option" data-accion="elegir-ilus" data-v="${k}" aria-pressed="${!e.emoji && !e.foto && e.ilus === k}" aria-label="${NOMBRE_ILUS[k]}">${ILUS[k]}<span>${NOMBRE_ILUS[k]}</span></button>`).join('')}</div>`;
   } else if (e.tipo === 'emoji') {
     imagen = `<div class="emojis">${EMOJIS_SUGERIDOS.map(x => `<button type="button" data-accion="elegir-emoji" data-v="${x}" aria-pressed="${e.emoji === x}" aria-label="Emoji ${x}">${x}</button>`).join('')}</div>
-      <div class="campo"><label for="ed-emoji">O escribe otro emoji</label><input id="ed-emoji" class="emoji-input" maxlength="4" value="${esc(e.emoji)}" placeholder="🥑" autocomplete="off"></div>`;
+      <div class="campo"><label for="ed-emoji">O escribe otro emoji</label><input id="ed-emoji" class="emoji-input" value="${esc(e.emoji)}" placeholder="🥑" autocomplete="off" inputmode="text" aria-describedby="ed-emoji-ayuda"><p class="ayuda" id="ed-emoji-ayuda">Abre el teclado de emojis del teléfono y elige uno; se queda solo el primero.</p></div>`;
   } else {
     imagen = `<div class="foto-zona">
       <label class="btn borde archivo">${e.foto ? 'Cambiar la foto' : 'Elegir foto o GIF'}<input type="file" id="ed-foto" accept="image/*" hidden></label>
@@ -1804,7 +1809,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'buscar') { filtro = t.value; const w = $('#rejilla-wrap'); if (w) w.innerHTML = rejillaHTML(); }
   else if (t.id === 'filtro-carga') { const q = t.value.trim().toLowerCase(); $$('.tabla-carga tbody tr').forEach(tr => { tr.hidden = !!q && !tr.dataset.nombre.includes(q); }); }
-  else if (t.id === 'ed-emoji' || t.id === 'ed-nombre') { sincronizarEdicion(); if (t.id === 'ed-emoji' && edicion.emoji) edicion.foto = ''; pintarVistaPrevia(); }
+  else if (t.id === 'ed-emoji' || t.id === 'ed-nombre') { sincronizarEdicion(); if (t.id === 'ed-emoji') { if (edicion.emoji) edicion.foto = ''; if (t.value.trim() !== edicion.emoji) t.value = edicion.emoji; } pintarVistaPrevia(); }
   else if (t.id === 'wa-tel' && ultimaVenta) { const a = $('#wa-enlace'); if (a) a.href = enlaceWA(textoTicket(ultimaVenta), t.value); }
 });
 document.addEventListener('change', e => {

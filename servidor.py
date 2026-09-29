@@ -36,7 +36,7 @@ CORREO_CONTACTO = (os.environ.get('CORREO_CONTACTO') or '').strip()   # se muest
 PAGINAS = {'privacidad': 'privacidad.html', 'terminos': 'terminos.html', 'operador': 'operador.html'}
 DIA_MS = 86400000
 SESION_DIAS = 180
-VERSION = '2026-09-28.2'
+VERSION = '2026-09-28.3'
 CLAVE_OPERADOR = (os.environ.get('CLAVE_OPERADOR') or '').strip()   # abre /operador: avance de todas las cuentas
 TZ_HORAS = int(os.environ.get('TZ_HORAS', '-6'))                     # México centro; el servidor corre en UTC   # el navegador la compara con la suya y se recarga si cambió
 
@@ -825,7 +825,7 @@ def datos_producto(d):
         return None, 'La foto es demasiado grande'
     return {'nombre': nombre, 'descripcion': texto(d.get('descripcion'), 60), 'unidad': unidad_valida(d.get('unidad')),
             'precio': r2(max(0.0, num(d.get('precio')))), 'ilus': d.get('ilus') if d.get('ilus') in ILUS else 'canasta',
-            'emoji': texto(d.get('emoji'), 8), 'foto': foto,
+            'emoji': texto(d.get('emoji'), 16), 'foto': foto,
             'precio_mayoreo': r2(max(0.0, num(d.get('precio_mayoreo')))), 'mayoreo_desde': r3(max(0.0, num(d.get('mayoreo_desde')))),
             'costo': r2(max(0.0, num(d.get('costo'))))}, None
 
