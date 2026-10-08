@@ -438,17 +438,37 @@ def api_operador():
                             'COALESCE(SUM(activo AND (existencia <= 0 OR (declarado > 0 AND existencia / declarado < 0.2))),0) alertas '
                             'FROM productos WHERE sucursal_id = ?', (s['id'],)).fetchone()
             v = con.execute('SELECT COUNT(*) n, COALESCE(SUM(total),0) t, MAX(ts) u FROM ventas WHERE sucursal_id = ?', (s['id'],)).fetchone()
+            # Margen del catálogo: lo que deja cada producto encendido con costo, según su precio de hoy.
+            margenes = [(r['precio'] - r['costo']) / r['precio'] for r in con.execute(
+                'SELECT precio, costo FROM productos WHERE sucursal_id = ? AND activo = 1 AND costo > 0 AND precio > 0', (s['id'],))]
+            # Margen de lo vendido: cada línea guarda el costo que tenía al venderse; las líneas sin costo no cuentan.
+            gan = {'con_costo': 0, 'ganancia': 0}
             por_dia = {}
-            for r in con.execute('SELECT ts, total FROM ventas WHERE sucursal_id = ? AND ts >= ?', (s['id'], desde7)):
-                d = _dia(r['ts'])
-                por_dia.setdefault(d, {'tickets': 0, 'total': 0})
-                por_dia[d]['tickets'] += 1
-                por_dia[d]['total'] = r2(por_dia[d]['total'] + r['total'])
+            for r in con.execute('SELECT ts, total, lineas FROM ventas WHERE sucursal_id = ?', (s['id'],)):
+                g_t = {'con_costo': 0, 'ganancia': 0}
+                for l in json.loads(r['lineas'] or '[]'):
+                    if num(l.get('costo')) > 0:
+                        g_t['con_costo'] += num(l.get('importe'))
+                        g_t['ganancia'] += num(l.get('importe')) - num(l.get('cantidad')) * num(l.get('costo'))
+                gan['con_costo'] += g_t['con_costo']
+                gan['ganancia'] += g_t['ganancia']
+                if r['ts'] < desde7:
+                    continue
+                d = por_dia.setdefault(_dia(r['ts']), {'tickets': 0, 'total': 0, 'con_costo': 0, 'ganancia': 0})
+                d['tickets'] += 1
+                d['total'] = r2(d['total'] + r['total'])
+                d['con_costo'] = r2(d['con_costo'] + g_t['con_costo'])
+                d['ganancia'] = r2(d['ganancia'] + g_t['ganancia'])
             m = con.execute("SELECT COUNT(*) n, MAX(ts) u FROM movimientos WHERE sucursal_id = ? AND tipo != 'venta'", (s['id'],)).fetchone()
             sucs.append({'nombre': s['nombre'], 'creada': _fecha(s['creado']), 'ejemplo': bool(s['ejemplo']), 'clave_caja': s['clave_caja'],
                          'productos': {'total': p['n'], 'encendidos': p['a'], 'con_stock': p['con_stock'], 'con_costo': p['con_costo'],
-                                       'con_mayoreo': p['con_mayoreo'], 'por_reponer': p['alertas']},
-                         'ventas': {'tickets': v['n'], 'total': r2(v['t']), 'ultima': _fecha(v['u']), 'hoy': por_dia.get(hoy, {'tickets': 0, 'total': 0}), 'por_dia': por_dia},
+                                       'con_mayoreo': p['con_mayoreo'], 'por_reponer': p['alertas'],
+                                       'margen_promedio': round(sum(margenes) / len(margenes) * 100, 1) if margenes else None,
+                                       'con_perdida': sum(1 for x in margenes if x <= 0)},
+                         'ventas': {'tickets': v['n'], 'total': r2(v['t']), 'ultima': _fecha(v['u']),
+                                    'hoy': por_dia.get(hoy, {'tickets': 0, 'total': 0, 'con_costo': 0, 'ganancia': 0}), 'por_dia': por_dia,
+                                    'con_costo': r2(gan['con_costo']), 'ganancia': r2(gan['ganancia']),
+                                    'margen': round(gan['ganancia'] / gan['con_costo'] * 100, 1) if gan['con_costo'] > 0 else None},
                          'cargas': {'n': m['n'], 'ultima': _fecha(m['u'])}})
         out.append({'nombre': c['nombre'], 'correo': c['correo'], 'creada': _fecha(c['creado']), 'con_google': bool(c['google_sub']),
                     'ultima_entrada': _fecha(ses['m']), 'sucursales': sucs})

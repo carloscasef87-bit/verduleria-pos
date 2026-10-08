@@ -58,7 +58,9 @@ Cuando la dirección declara stock (entrada o carga), esa cantidad se vuelve el 
 
 `/operador` (con la variable `CLAVE_OPERADOR`) muestra el avance de todas las cuentas: sucursales,
 productos encendidos, con stock y con costo, tickets, vendido, última venta, última carga y ventas
-de los últimos 7 días. Cifras agregadas, sin tickets.
+de los últimos 7 días. También la **ganancia y el margen** de cada cliente: el de lo vendido (con el
+costo que tenía cada línea al venderse; las líneas sin costo no cuentan) y el promedio del catálogo
+encendido, con aviso de productos que se venden con pérdida. Cifras agregadas, sin tickets.
 
 ## Versiones
 

@@ -18,7 +18,8 @@ th{font-size:.88rem;font-weight:700;color:#3F4B43;background:#F7F9F2;line-height
 tbody tr:nth-child(even) td{background:#FAFBF7}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 td b{font-size:1.05rem}
-.ok{color:#1F7A3F;font-weight:700}.mal{color:#B83232;font-weight:700}
+.ok{color:#1F7A3F;font-weight:700}.mal{color:#B83232;font-weight:700}.bajo{color:#9A5B00;font-weight:700}
+.resumen{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:10px;font-size:1.05rem}
 input{font:inherit;padding:11px 13px;border:1px solid #B9C5AC;border-radius:10px;min-width:220px}button{font:inherit;padding:11px 16px;border:0;border-radius:10px;background:#2A8A4C;color:#fff;font-weight:700;cursor:pointer}
 .dias{font-size:.92rem;color:#2C3830;white-space:nowrap}
 @media (max-width:640px){body{font-size:16px}table{display:block;overflow-x:auto}}
@@ -31,15 +32,28 @@ input{font:inherit;padding:11px 13px;border:1px solid #B9C5AC;border-radius:10px
 <script>
 const $=s=>document.querySelector(s);const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const din=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=n=>n==null?'—':`<span class="${n<=0?'mal':n<15?'bajo':'ok'}">${Number(n).toLocaleString('es-MX',{maximumFractionDigits:1})} %</span>`;
+// Ganancia y margen de lo vendido: solo cuentan las líneas que tenían costo al venderse.
+function ganancia(v){
+  if(!(v.con_costo>0))return '<span class="meta">sin costos</span>';
+  const parcial=v.con_costo<v.total-0.005?`<br><span class="meta">de ${din(v.con_costo)} con costo</span>`:'';
+  return `<b>${din(v.ganancia)}</b>${parcial}`;
+}
+function resumen(c){
+  const t=c.sucursales.reduce((a,s)=>({total:a.total+s.ventas.total,con_costo:a.con_costo+s.ventas.con_costo,ganancia:a.ganancia+s.ventas.ganancia}),{total:0,con_costo:0,ganancia:0});
+  if(!(t.total>0))return '';
+  const m=t.con_costo>0?t.ganancia/t.con_costo*100:null;
+  return `<div class="resumen"><span>Vendido <b>${din(t.total)}</b></span><span>Ganancia <b>${t.con_costo>0?din(t.ganancia):'—'}</b></span><span>Margen <b>${pct(m)}</b></span>${t.con_costo>0&&t.con_costo<t.total-0.005?`<span class="meta">${Math.round(t.con_costo/t.total*100)} % de lo vendido tenía costo</span>`:''}</div>`;
+}
 async function cargar(clave){
   const r=await fetch('api/operador',{headers:{'X-Operador':clave},cache:'no-store'});
   if(!r.ok){$('#salida').innerHTML='<p class="mal">Clave incorrecta o servidor sin CLAVE_OPERADOR.</p>';return;}
   const d=await r.json(); try{localStorage.setItem('operador.clave',clave)}catch(e){}
   $('#salida').innerHTML=`<p class="meta">Hoy ${d.hoy} · ${d.cuentas.length} cuentas · versión ${d.version}</p>`+d.cuentas.map(c=>`<div class="cuenta">
     <h2>${esc(c.nombre)} <span class="meta">· ${esc(c.correo)}${c.con_google?' · Google':''}</span></h2>
-    <div class="meta">Cuenta creada ${c.creada} · última entrada a Dirección: ${c.ultima_entrada||'nunca'}</div>
-    <table><thead><tr><th>Sucursal</th><th class="num">Encendidos</th><th class="num">Con stock</th><th class="num">Con costo</th><th class="num">Mayoreo</th><th class="num">Por reponer</th><th class="num">Tickets</th><th class="num">Vendido</th><th>Última venta</th><th>Última carga</th><th>Últimos 7 días</th></tr></thead><tbody>
-    ${c.sucursales.map(s=>`<tr><td><b>${esc(s.nombre)}</b>${s.ejemplo?' <span class="meta">(datos de ejemplo)</span>':''}<br><span class="meta">caja ${esc(s.clave_caja)} · creada ${s.creada}</span></td><td class="num">${s.productos.encendidos}/${s.productos.total}</td><td class="num">${s.productos.con_stock}</td><td class="num">${s.productos.con_costo}</td><td class="num">${s.productos.con_mayoreo}</td><td class="num">${s.productos.por_reponer}</td><td class="num">${s.ventas.tickets}</td><td class="num">${din(s.ventas.total)}</td><td>${s.ventas.ultima||'<span class="mal">ninguna</span>'}</td><td>${s.cargas.ultima||'<span class="mal">ninguna</span>'}</td><td class="dias">${Object.keys(s.ventas.por_dia).sort().map(k=>`${k.slice(5)}: ${s.ventas.por_dia[k].tickets} · ${din(s.ventas.por_dia[k].total)}`).join('<br>')||'—'}</td></tr>`).join('')}
+    <div class="meta">Cuenta creada ${c.creada} · última entrada a Dirección: ${c.ultima_entrada||'nunca'}</div>${resumen(c)}
+    <table><thead><tr><th>Sucursal</th><th class="num">Encendidos</th><th class="num">Con stock</th><th class="num">Con costo</th><th class="num">Mayoreo</th><th class="num">Por reponer</th><th class="num">Tickets</th><th class="num">Vendido</th><th class="num">Ganancia</th><th class="num">Margen</th><th>Última venta</th><th>Última carga</th><th>Últimos 7 días</th></tr></thead><tbody>
+    ${c.sucursales.map(s=>`<tr><td><b>${esc(s.nombre)}</b>${s.ejemplo?' <span class="meta">(datos de ejemplo)</span>':''}<br><span class="meta">caja ${esc(s.clave_caja)} · creada ${s.creada}</span></td><td class="num">${s.productos.encendidos}/${s.productos.total}</td><td class="num">${s.productos.con_stock}</td><td class="num">${s.productos.con_costo}</td><td class="num">${s.productos.con_mayoreo}</td><td class="num">${s.productos.por_reponer}</td><td class="num">${s.ventas.tickets}</td><td class="num">${din(s.ventas.total)}</td><td class="num">${ganancia(s.ventas)}</td><td class="num">${pct(s.ventas.margen)}${s.productos.margen_promedio!=null?`<br><span class="meta">catálogo ${pct(s.productos.margen_promedio)}</span>`:''}${s.productos.con_perdida?`<br><span class="mal">${s.productos.con_perdida} con pérdida</span>`:''}</td><td>${s.ventas.ultima||'<span class="mal">ninguna</span>'}</td><td>${s.cargas.ultima||'<span class="mal">ninguna</span>'}</td><td class="dias">${Object.keys(s.ventas.por_dia).sort().map(k=>`${k.slice(5)}: ${s.ventas.por_dia[k].tickets} · ${din(s.ventas.por_dia[k].total)}${s.ventas.por_dia[k].con_costo>0?` · gan. ${din(s.ventas.por_dia[k].ganancia)}`:''}`).join('<br>')||'—'}</td></tr>`).join('')}
     </tbody></table></div>`).join('');
 }
 $('#f').addEventListener('submit',e=>{e.preventDefault();cargar($('#clave').value.trim())});
