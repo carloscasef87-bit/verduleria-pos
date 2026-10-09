@@ -92,14 +92,16 @@ servidor; si no (GitHub Pages, un archivo abierto a mano), guarda en el navegado
 ## Railway
 
 Proyecto `verduleria-pos`, servicio `verduleria-pos`, volumen montado en `/data` y variable
-`DATOS_DIR=/data` (ahí vive `verduleria.db`). Se despliega con `railway up` desde esta carpeta
-(ver «Desplegar un cambio»).
+`DATOS_DIR=/data` (ahí vive `verduleria.db`). El servicio está conectado al repositorio de GitHub
+`carloscasef87-bit/verduleria-pos`, rama `main`: **cada push a `main` se despliega solo** (ver
+«Desplegar un cambio»).
 Un solo worker de gunicorn (SQLite). Las variables `MIGRACION_CORREO` y `MIGRACION_CONTRASENA`
 solo se usaron una vez, para convertir la base de un solo negocio en la primera cuenta.
 
 ## Desplegar un cambio
 
-Siempre en este orden, para que GitHub y Railway tengan exactamente lo mismo:
+Siempre en este orden. Railway despliega lo que llega a `main` en GitHub, así que lo que está en
+GitHub es lo que corre:
 
 1. **Probar en local** (`DATOS_DIR=./datos python servidor.py`) la pantalla que cambió, en
    computadora y en teléfono.
@@ -109,11 +111,13 @@ Siempre en este orden, para que GitHub y Railway tengan exactamente lo mismo:
    `terminos.html`…), **no** tocar `VERSION`: con valores distintos los teléfonos se recargarían
    sin parar.
 3. **Commit** en `main` con todo lo que va a salir: `git status` debe quedar limpio.
-4. **`git push origin main`**: GitHub queda como copia de lo que corre (y actualiza la demo de
-   GitHub Pages).
-5. **`railway up --ci`** desde esta carpeta y con el árbol limpio: `railway up` sube los archivos
-   tal como están en el disco, no el último commit.
-6. **Comprobar**: `/api/salud` responde y la pantalla cambiada se ve bien en producción.
+4. **`git push origin main`**: Railway construye y despliega ese commit solo (tarda un par de
+   minutos) y la demo de GitHub Pages se actualiza también. Ya no se usa `railway up`: subiría
+   archivos del disco que quizá no están en GitHub.
+5. **Comprobar**: el despliegue terminó (`railway status` o el panel de Railway), `/api/salud`
+   responde y la pantalla cambiada se ve bien en producción.
+
+Cada push a `main` sale a producción: lo que no esté listo se queda en otra rama o sin subir.
 
 ## API
 
