@@ -439,8 +439,10 @@ def api_operador():
                             'FROM productos WHERE sucursal_id = ?', (s['id'],)).fetchone()
             v = con.execute('SELECT COUNT(*) n, COALESCE(SUM(total),0) t, MAX(ts) u FROM ventas WHERE sucursal_id = ?', (s['id'],)).fetchone()
             # Margen del catálogo: lo que deja cada producto encendido con costo, según su precio de hoy.
-            margenes = [(r['precio'] - r['costo']) / r['precio'] for r in con.execute(
-                'SELECT precio, costo FROM productos WHERE sucursal_id = ? AND activo = 1 AND costo > 0 AND precio > 0', (s['id'],))]
+            con_costo = con.execute('SELECT nombre, unidad, precio, costo FROM productos WHERE sucursal_id = ? AND activo = 1 AND costo > 0 AND precio > 0 '
+                                    'ORDER BY orden', (s['id'],)).fetchall()
+            margenes = [(r['precio'] - r['costo']) / r['precio'] for r in con_costo]
+            perdida = [{'nombre': r['nombre'], 'unidad': r['unidad'], 'precio': r['precio'], 'costo': r['costo']} for r in con_costo if r['costo'] >= r['precio']]
             # Margen de lo vendido: cada línea guarda el costo que tenía al venderse; las líneas sin costo no cuentan.
             gan = {'con_costo': 0, 'ganancia': 0}
             por_dia = {}
@@ -464,7 +466,7 @@ def api_operador():
                          'productos': {'total': p['n'], 'encendidos': p['a'], 'con_stock': p['con_stock'], 'con_costo': p['con_costo'],
                                        'con_mayoreo': p['con_mayoreo'], 'por_reponer': p['alertas'],
                                        'margen_promedio': round(sum(margenes) / len(margenes) * 100, 1) if margenes else None,
-                                       'con_perdida': sum(1 for x in margenes if x <= 0)},
+                                       'con_perdida': len(perdida), 'perdida': perdida[:10]},
                          'ventas': {'tickets': v['n'], 'total': r2(v['t']), 'ultima': _fecha(v['u']),
                                     'hoy': por_dia.get(hoy, {'tickets': 0, 'total': 0, 'con_costo': 0, 'ganancia': 0}), 'por_dia': por_dia,
                                     'con_costo': r2(gan['con_costo']), 'ganancia': r2(gan['ganancia']),
